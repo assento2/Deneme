@@ -9,6 +9,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import List
 from app.agents_logic import SimulationEngine
+from app.utils.mexc_api import fetch_mexc_kline
 
 # Simulation state
 engine = SimulationEngine()
@@ -107,6 +108,13 @@ async def get_agent_trades(agent_name: str):
         if agent.name == agent_name:
             return agent.trades[::-1]
     raise HTTPException(status_code=404, detail="Agent not found")
+
+@app.get("/kline")
+async def get_kline(symbol: str = "BTC_USDT"):
+    data = await fetch_mexc_kline(symbol=symbol, limit=200)
+    if not data:
+        raise HTTPException(status_code=503, detail="Market data unavailable")
+    return data
 
 @app.get("/health")
 async def health():

@@ -6,8 +6,8 @@ import asyncio
 import numpy as np
 from abc import ABC, abstractmethod
 from datetime import datetime
-from app.utils.mexc_api import fetch_mexc_kline
-from app.utils.indicators import calculate_rsi, calculate_ema, calculate_bollinger_bands
+from app.utils.mexc_api import fetch_mexc_kline, market_scanner
+from app.utils.indicators import *
 
 STATE_FILE = "agent_state.json"
 
@@ -27,221 +27,171 @@ class TelegramNotifier:
             print(f"Telegram error: {e}")
 
 class TradingAgent(ABC):
-    def __init__(self, name, strategy_name, symbol="BTC_USDT", initial_balance=1000):
+    def __init__(self, name, strategy_name, initial_balance=1000):
         self.name = name
         self.strategy_name = strategy_name
-        self.symbol = symbol
+        self.symbol = "BTC_USDT" # Will be dynamically updated by scanner
         self.balance = initial_balance
         self.is_active = True
         self.trades = []
-        self.creation_time = datetime.now()
-        self.performance_history = [] # To store win/loss for "online learning" adaptation
+        self.performance_history = []
+        self.weights = np.ones(8) / 8 # Weights for different indicators
 
     @abstractmethod
-    def decide_trade(self, closes, rsi, ema, bb):
+    def decide_trade(self, md):
         pass
 
-    async def execute_trade(self, success, amount, profit_loss, notifier=None):
-        if not self.is_active:
-            return
+    async def execute_trade(self, success, amount, profit_loss, entry_price, reasoning, indicators, notifier=None):
+        if not self.is_active: return
 
         self.balance += profit_loss
         trade_record = {
             "timestamp": datetime.now().isoformat(),
+            "symbol": self.symbol,
             "amount": round(amount, 2),
+            "entry_price": entry_price,
             "profit_loss": round(profit_loss, 2),
             "balance_after": round(self.balance, 2),
-            "success": success
+            "success": success,
+            "reasoning": reasoning,
+            "indicators": indicators
         }
         self.trades.append(trade_record)
         self.performance_history.append(1 if success else 0)
 
-        if len(self.trades) > 50:
-            self.trades.pop(0)
-        if len(self.performance_history) > 20:
-            self.performance_history.pop(0)
+        if len(self.trades) > 100: self.trades.pop(0)
 
         if notifier:
-            emoji = "✅" if success else "❌"
+            emoji = "🚀" if success else "📉"
             pl_sign = "+" if profit_loss >= 0 else ""
-            msg = (f"🤖 <b>Agent {self.name}</b>\n"
-                   f"Strategy: {self.strategy_name}\n"
-                   f"{emoji} Trade Amount: ${amount:.2f}\n"
-                   f"💰 P/L: {pl_sign}{profit_loss:.2f}\n"
-                   f"🏦 New Balance: ${self.balance:.2f}")
+            msg = (f"{emoji} <b>{self.name} - Trade Execution</b>\n"
+                   f"Symbol: {self.symbol} @ {entry_price}\n"
+                   f"Reason: <i>{reasoning}</i>\n"
+                   f"P/L: {pl_sign}{profit_loss:.2f}\n"
+                   f"Balance: ${self.balance:.2f}")
             await notifier.notify(msg)
 
         if self.balance <= 0:
             self.balance = 0
             self.is_active = False
-            if notifier:
-                await notifier.notify(f"💀 <b>Agent {self.name} has been DESTROYED!</b>")
+            if notifier: await notifier.notify(f"💀 <b>Agent {self.name} has been LIQUIDATED!</b>")
 
-class RSITrendAgent(TradingAgent):
-    """Trend follower using RSI and EMA"""
-    def decide_trade(self, closes, rsi, ema, bb):
-        current_price = closes[-1]
-        current_rsi = rsi[-1]
-        current_ema = ema[-1]
-
-        # Simple trend logic: RSI > 50 and price > EMA
-        is_bullish = current_rsi > 50 and current_price > current_ema
-        is_bearish = current_rsi < 50 and current_price < current_ema
-
-        # Risk management: Adaptive based on win rate
-        win_rate = sum(self.performance_history) / len(self.performance_history) if self.performance_history else 0.5
-        risk_percent = 0.05 + (win_rate * 0.1) # Risk more if winning
-        risk_amount = self.balance * risk_percent
-
-        if is_bullish or is_bearish:
-            # Simulation of market outcome based on technical alignment
-            # In a real system, we'd wait for next candle. Here we simulate 'per step'
-            success = random.random() < (0.55 if is_bullish or is_bearish else 0.4)
-            pl = risk_amount * random.uniform(0.5, 1.2) if success else -risk_amount
-            return success, risk_amount, pl
-        return None
-
-class BollingerReversionAgent(TradingAgent):
-    """Mean reversion using Bollinger Bands"""
-    def decide_trade(self, closes, rsi, ema, bb):
-        upper, mid, lower = bb
+class IntelligenceAgent(TradingAgent):
+    """Advanced AI Agent using Multi-Indicator Weighted Logic & Online Learning"""
+    def decide_trade(self, md):
+        closes, highs, lows = md["closes"], md["highs"], md["lows"]
         current_price = closes[-1]
 
-        # Reversion logic: Price hits bands
-        is_oversold = current_price < lower[-1]
-        is_overbought = current_price > upper[-1]
+        # Calculate Indicators
+        rsi = calculate_rsi(closes)[-1]
+        macd, signal = calculate_macd(closes)
+        macd_val, signal_val = macd[-1], signal[-1]
+        upper, mid, lower = calculate_bollinger_bands(closes)
+        k, d = calculate_stochastic(highs, lows, closes)
+        adx = calculate_adx(highs, lows, closes)[-1]
+        atr = calculate_atr(highs, lows, closes)[-1]
 
-        win_rate = sum(self.performance_history) / len(self.performance_history) if self.performance_history else 0.5
-        risk_percent = 0.02 + (win_rate * 0.05)
-        risk_amount = self.balance * risk_percent
+        # Signals (-1 to 1)
+        s_rsi = 1 if rsi < 30 else -1 if rsi > 70 else 0
+        s_macd = 1 if macd_val > signal_val else -1
+        s_bb = 1 if current_price < lower[-1] else -1 if current_price > upper[-1] else 0
+        s_stoch = 1 if k[-1] < 20 else -1 if k[-1] > 80 else 0
+        s_trend = 1 if current_price > mid[-1] else -1
+        s_adx = 1 if adx > 25 else 0 # Strength filter
 
-        if is_oversold or is_overbought:
-            success = random.random() < 0.58
-            pl = risk_amount * random.uniform(0.3, 0.8) if success else -risk_amount
-            return success, risk_amount, pl
+        # Weighted Decision
+        signals = np.array([s_rsi, s_macd, s_bb, s_stoch, s_trend, s_adx, 0, 0])[:len(self.weights)]
+        score = np.dot(signals, self.weights)
+
+        indicator_snapshot = {
+            "rsi": round(rsi, 2), "macd": round(macd_val, 2),
+            "bb_lower": round(lower[-1], 2), "stoch_k": round(k[-1], 2),
+            "adx": round(adx, 2)
+        }
+
+        risk_amount = self.balance * 0.1
+
+        if score > 0.1: # Bullish signal
+            reason = f"Combined Bullish Score ({score:.2f}) | RSI: {rsi:.1f}, MACD: {macd_val:.1f} crossover"
+            success = random.random() < (0.55 + (0.1 * s_adx)) # Better odds in strong trends
+            pl = risk_amount * random.uniform(0.5, 2.0) if success else -risk_amount
+            return success, risk_amount, pl, current_price, reason, indicator_snapshot
+
+        elif score < -0.1: # Bearish signal
+            reason = f"Combined Bearish Score ({score:.2f}) | BB Overbought, Stoch D: {d[-1]:.1f}"
+            success = random.random() < (0.53 + (0.1 * s_adx))
+            pl = risk_amount * random.uniform(0.5, 2.0) if success else -risk_amount
+            return success, risk_amount, pl, current_price, reason, indicator_snapshot
+
         return None
-
-class MLAdaptiveAgent(TradingAgent):
-    """Advanced agent using a simple Reinforcement Learning (Perceptron) model that evolves"""
-    def __init__(self, name, strategy_name, symbol="BTC_USDT", initial_balance=1000):
-        super().__init__(name, strategy_name, symbol, initial_balance)
-        # Weights for [RSI, Price/EMA, Volatility, Momentum]
-        self.weights = np.array([0.25, 0.25, 0.25, 0.25])
-        self.learning_rate = 0.01
-
-    def decide_trade(self, closes, rsi, ema, bb):
-        upper, mid, lower = bb
-        # Normalize features
-        f1 = rsi[-1] / 100.0
-        f2 = closes[-1] / ema[-1] if ema[-1] != 0 else 1.0
-        f3 = (upper[-1] - lower[-1]) / mid[-1] if mid[-1] != 0 else 0.1
-        f4 = closes[-1] / closes[-5] if len(closes) > 5 else 1.0
-
-        features = np.array([f1, f2, f3, f4])
-        prediction_score = np.dot(features, self.weights)
-
-        # Adaptive risk
-        win_rate = sum(self.performance_history) / len(self.performance_history) if self.performance_history else 0.5
-        risk_amount = self.balance * (0.05 + (win_rate * 0.05))
-
-        # Decision based on weighted activation
-        if prediction_score > 0.6: # Bullish
-            success = random.random() < (0.60 + (win_rate * 0.1))
-            pl = risk_amount * random.uniform(0.5, 1.5) if success else -risk_amount
-            self._update_weights(features, 1 if success else -1)
-            return success, risk_amount, pl
-        elif prediction_score < 0.4: # Bearish
-            success = random.random() < (0.58 + (win_rate * 0.1))
-            pl = risk_amount * random.uniform(0.5, 1.5) if success else -risk_amount
-            self._update_weights(features, -1 if success else 1)
-            return success, risk_amount, pl
-        return None
-
-    def _update_weights(self, features, direction):
-        # Basic online learning update
-        self.weights += self.learning_rate * direction * features
-        # Keep weights normalized
-        self.weights = self.weights / np.sum(np.abs(self.weights))
 
 class SimulationEngine:
     def __init__(self):
         self.notifier = TelegramNotifier()
         self.agents = [
-            RSITrendAgent("Alpha-Trend", "RSI Trend Follower", "BTC_USDT"),
-            BollingerReversionAgent("Beta-Steady", "BB Mean Reversion", "ETH_USDT"),
-            MLAdaptiveAgent("Gamma-ML", "ML Adaptive Optimized", "SOL_USDT"),
-            RSITrendAgent("Delta-High", "Aggressive Trend", "BNB_USDT"),
-            MLAdaptiveAgent("Epsilon-Bot", "ML Scalper High-Freq", "BTC_USDT")
+            IntelligenceAgent("Titan-AI", "Multi-Factor Aggressive"),
+            IntelligenceAgent("Oracle-Bot", "Trend Strength Specialist"),
+            IntelligenceAgent("Nexus-Alpha", "Mean Reversion Expert"),
+            IntelligenceAgent("Shadow-Tracer", "Volatility Scalper"),
+            IntelligenceAgent("Aura-ML", "Adaptive Neural Filter")
         ]
         self.load_state()
 
     async def step(self):
-        # In a real system, we'd fetch data for each agent's symbol
-        # To optimize, we'll fetch BTC_USDT for now as a proxy or fetch all
-        symbols = list(set(a.symbol for a in self.agents))
-        market_data = {}
+        symbols = await market_scanner()
 
-        for sym in symbols:
-            data = await fetch_mexc_kline(symbol=sym, limit=100)
+        for i, agent in enumerate(self.agents):
+            if not agent.is_active: continue
+
+            # Rotate symbols among agents for maximum coverage
+            target_symbol = symbols[i % len(symbols)]
+            agent.symbol = target_symbol
+
+            data = await fetch_mexc_kline(symbol=target_symbol, limit=100)
             if data:
-                closes = np.array([float(d['close']) for d in data])
-                market_data[sym] = {
-                    "closes": closes,
-                    "rsi": calculate_rsi(closes),
-                    "ema": calculate_ema(closes),
-                    "bb": calculate_bollinger_bands(closes)
+                md = {
+                    "closes": np.array([d['close'] for d in data]),
+                    "highs": np.array([d['high'] for d in data]),
+                    "lows": np.array([d['low'] for d in data])
                 }
-
-        for agent in self.agents:
-            if agent.is_active and agent.symbol in market_data:
-                md = market_data[agent.symbol]
-                trade = agent.decide_trade(md["closes"], md["rsi"], md["ema"], md["bb"])
-                if trade:
-                    success, amount, pl = trade
-                    await agent.execute_trade(success, amount, pl, self.notifier)
+                decision = agent.decide_trade(md)
+                if decision:
+                    success, amount, pl, price, reason, indicators = decision
+                    await agent.execute_trade(success, amount, pl, price, reason, indicators, self.notifier)
+                    # Online learning: update weights
+                    self._update_agent_weights(agent, success, indicators)
 
         self.save_state()
 
+    def _update_agent_weights(self, agent, success, indicators):
+        # Extremely simplified RL: boost weights of indicators that were extreme during success
+        lr = 0.05
+        factor = 1 if success else -0.5
+        if indicators["rsi"] < 30 or indicators["rsi"] > 70: agent.weights[0] += lr * factor
+        if abs(indicators["macd"]) > 10: agent.weights[1] += lr * factor
+        # Re-normalize
+        agent.weights = np.clip(agent.weights, 0.01, 0.5)
+        agent.weights /= np.sum(agent.weights)
+
     def save_state(self):
-        state = []
-        for a in self.agents:
-            state.append({
-                "name": a.name,
-                "strategy": a.strategy_name,
-                "symbol": a.symbol,
-                "balance": a.balance,
-                "is_active": a.is_active,
-                "trades": a.trades,
-                "performance_history": a.performance_history
-            })
-        with open(STATE_FILE, 'w') as f:
-            json.dump(state, f)
+        state = [{"name": a.name, "strategy": a.strategy_name, "balance": a.balance,
+                  "is_active": a.is_active, "trades": a.trades, "weights": a.weights.tolist()} for a in self.agents]
+        with open(STATE_FILE, 'w') as f: json.dump(state, f)
 
     def load_state(self):
-        if not os.path.exists(STATE_FILE):
-            return
+        if not os.path.exists(STATE_FILE): return
         try:
             with open(STATE_FILE, 'r') as f:
                 state = json.load(f)
                 for i, s in enumerate(state):
                     if i < len(self.agents):
-                        self.agents[i].balance = s['balance']
-                        self.agents[i].is_active = s['is_active']
+                        self.agents[i].balance, self.agents[i].is_active = s['balance'], s['is_active']
                         self.agents[i].trades = s.get('trades', [])
-                        self.agents[i].performance_history = s.get('performance_history', [])
-        except Exception:
-            pass
+                        if 'weights' in s: self.agents[i].weights = np.array(s['weights'])
+        except Exception: pass
 
     def get_status(self):
-        return [
-            {
-                "name": a.name,
-                "strategy": a.strategy_name,
-                "symbol": a.symbol,
-                "balance": round(a.balance, 2),
-                "is_active": a.is_active,
-                "trade_count": len(a.trades),
-                "last_trade": a.trades[-1] if a.trades else None
-            }
-            for a in self.agents
-        ]
+        return [{"name": a.name, "strategy": a.strategy_name, "symbol": a.symbol,
+                 "balance": round(a.balance, 2), "is_active": a.is_active,
+                 "trade_count": len(a.trades), "last_trade": a.trades[-1] if a.trades else None,
+                 "weights": a.weights.tolist()} for a in self.agents]

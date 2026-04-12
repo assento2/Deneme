@@ -309,65 +309,7 @@
 
         function showAgentDetail(idx) {
             const agent = globalAgents[idx];
-            const modal = document.getElementById('agentDetailModal');
-            const header = document.getElementById('modalHeader');
-            const content = document.getElementById('modalContent');
-
-            header.innerHTML = `
-                <h2 class="text-3xl font-bold">${agent.name} <span class="text-blue-500 text-sm font-mono ml-2">${agent.symbol}</span></h2>
-                <p class="text-slate-400">${agent.strategy}</p>
-            `;
-
-            content.innerHTML = `
-                <div class="space-y-6">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800">
-                            <p class="text-slate-500 text-xs mb-1 uppercase">${i18n[currentLang].balance}</p>
-                            <p class="text-3xl font-bold">$${agent.balance.toFixed(2)}</p>
-                        </div>
-                        <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800">
-                            <p class="text-slate-500 text-xs mb-1 uppercase">${i18n[currentLang].total_trades}</p>
-                            <p class="text-3xl font-bold">${agent.trade_count}</p>
-                        </div>
-                    </div>
-                    <div class="bg-slate-950 p-6 rounded-3xl border border-slate-800">
-                        <h4 class="text-sm font-bold mb-4 uppercase text-slate-400">Performans Analizi</h4>
-                        <div class="space-y-4 text-sm">
-                            <div class="flex justify-between"><span>Başarı Oranı</span><span class="text-emerald-400 font-bold">--</span></div>
-                            <div class="flex justify-between"><span>Risk Seviyesi</span><span class="text-yellow-400">Orta</span></div>
-                            <div class="flex justify-between"><span>Veri Kaynağı</span><span class="text-blue-400 font-mono">MEXC Futures</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-slate-950 rounded-3xl p-6 border border-slate-800 overflow-hidden">
-                    <h4 class="text-sm font-bold mb-4 uppercase text-slate-400">Son İşlemler</h4>
-                    <div class="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar" id="agentTradesList">
-                        <!-- Agent specific trades will be listed here -->
-                    </div>
-                </div>
-            `;
-
-            // In a real app, fetch specific trades for this agent
-            fetch(`/agent/${agent.name}/trades`)
-                .then(r => r.json())
-                .then(trades => {
-                    const list = document.getElementById('agentTradesList');
-                    list.innerHTML = trades.map(t => `
-                        <div class="flex justify-between items-center p-3 bg-slate-900/50 rounded-xl border border-slate-800/50">
-                            <div class="text-xs">
-                                <p class="text-slate-300 font-bold">${new Date(t.timestamp).toLocaleTimeString()}</p>
-                                <p class="text-slate-500">$${t.amount.toFixed(2)}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="font-bold ${t.success ? 'text-emerald-500' : 'text-red-500'}">${t.success ? '+' : ''}${t.profit_loss.toFixed(2)}</p>
-                                <p class="text-[10px] text-slate-600">$${t.balance_after.toFixed(2)}</p>
-                            </div>
-                        </div>
-                    `).join('');
-                });
-
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            window.location.href = `/agent_detail.html?name=${encodeURIComponent(agent.name)}`;
         }
 
         function closeModal() {
