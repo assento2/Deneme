@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoSafe AI - Global Agent Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+        }
+        .agent-card {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .agent-card:hover {
+            border-color: rgba(59, 130, 246, 0.5);
+            transform: translateY(-4px);
+        }
+        .status-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+        .eliminated {
+            filter: grayscale(1) opacity(0.6);
+            border-color: #ef4444 !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Navigation -->
+    <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <i class="fas fa-microchip text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">CryptoSafe AI</h1>
+                    <p class="text-[10px] text-blue-400 font-mono tracking-widest uppercase">Autonomous Agent Network</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-6 text-sm font-medium">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full status-pulse"></span>
+                    <span class="text-slate-400">Network Live</span>
+                </div>
+                <div class="h-4 w-[1px] bg-slate-800"></div>
+                <button onclick="location.reload()" class="hover:text-blue-400 transition">
+                    <i class="fas fa-sync-alt mr-2"></i>Reset View
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-[1600px] mx-auto p-6 lg:p-10">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- Left Panel: Agent Status -->
+            <div class="lg:col-span-8 space-y-8">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="text-3xl font-bold">Active AI Agents</h2>
+                        <p class="text-slate-400 mt-1">Real-time survival monitoring and strategy performance</p>
+                    </div>
+                </div>
+
+                <div id="agentsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <!-- Agents populated by JS -->
+                </div>
+
+                <!-- Live Market Activity -->
+                <div class="bg-slate-900/40 rounded-3xl border border-slate-800 p-8">
+                    <h3 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-bolt text-yellow-500 mr-3"></i>
+                        Live Network Trade Logs
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="text-slate-500 text-xs uppercase tracking-wider border-b border-slate-800">
+                                <tr>
+                                    <th class="pb-4 font-semibold">Agent</th>
+                                    <th class="pb-4 font-semibold">Strategy</th>
+                                    <th class="pb-4 font-semibold">Amount</th>
+                                    <th class="pb-4 font-semibold">P/L</th>
+                                    <th class="pb-4 font-semibold text-right">Balance After</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradeLogs" class="text-sm divide-y divide-slate-800/50">
+                                <!-- Trades populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Scanner & Stats -->
+            <div class="lg:col-span-4 space-y-8">
+                <!-- Global Stats -->
+                <div class="bg-gradient-to-br from-blue-600/20 to-indigo-600/20 rounded-3xl border border-blue-500/20 p-8">
+                    <h3 class="font-bold text-slate-300 uppercase text-xs tracking-widest mb-6">Global Network Health</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-slate-950/40 p-4 rounded-2xl">
+                            <p class="text-slate-500 text-xs mb-1">Total Capital</p>
+                            <p id="totalCapital" class="text-2xl font-bold">$0.00</p>
+                        </div>
+                        <div class="bg-slate-950/40 p-4 rounded-2xl">
+                            <p class="text-slate-500 text-xs mb-1">Active Agents</p>
+                            <p id="activeCount" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ML Scanner Utility -->
+                <div class="bg-slate-900/40 rounded-3xl border border-slate-800 p-8">
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <i class="fas fa-shield-virus text-blue-500 mr-3"></i>
+                        ML Risk Scanner
+                    </h3>
+                    <p class="text-sm text-slate-400 mb-6">Verify manual transactions through our trained neural network.</p>
+                    <form id="predictForm" class="space-y-4">
+                        <div>
+                            <label class="text-[10px] text-slate-500 uppercase font-bold">Transaction Value (ETH)</label>
+                            <input type="number" step="any" name="total_ether_received" value="1.5" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-bold transition shadow-lg shadow-blue-900/20">
+                            Scan Transaction
+                        </button>
+                    </form>
+                    <div id="scanResult" class="mt-6 hidden">
+                        <div class="p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs text-slate-400">Reliability Score</span>
+                                <span id="resScore" class="font-bold">--</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="resBar" class="bg-blue-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Info -->
+                <div class="bg-slate-900/20 rounded-3xl border border-slate-800/50 p-8 border-dashed">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase mb-4">Simulation Rules</h4>
+                    <ul class="text-xs text-slate-400 space-y-2">
+                        <li><i class="fas fa-check text-emerald-500 mr-2"></i>Each agent starts with $1,000</li>
+                        <li><i class="fas fa-check text-emerald-500 mr-2"></i>24/7 Automated trading cycles</li>
+                        <li><i class="fas fa-times text-red-500 mr-2"></i>Balance ≤ $0 = Permanent Destruction</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        async function updateDashboard() {
+            try {
+                const [agentsRes, tradesRes] = await Promise.all([
+                    fetch('/agents'),
+                    fetch('/trades')
+                ]);
+                const agents = await agentsRes.json();
+                const trades = await tradesRes.json();
+
+                // Update Agents Grid
+                const grid = document.getElementById('agentsGrid');
+                grid.innerHTML = agents.map(agent => `
+                    <div class="agent-card rounded-3xl p-6 ${!agent.is_active ? 'eliminated' : ''}">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h4 class="font-bold text-lg">${agent.name}</h4>
+                                <span class="text-[10px] bg-slate-800 px-2 py-1 rounded-md text-slate-400 uppercase tracking-tighter">${agent.strategy}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs text-slate-500 block uppercase">Balance</span>
+                                <span class="text-xl font-bold ${agent.balance > 1000 ? 'text-emerald-400' : 'text-slate-200'}">
+                                    $${agent.balance.toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-500">Status</span>
+                                <span class="${agent.is_active ? 'text-emerald-500' : 'text-red-500'} font-bold">
+                                    ${agent.is_active ? 'ACTIVE' : 'DESTROYED'}
+                                </span>
+                            </div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-500">Total Trades</span>
+                                <span>${agent.trade_count}</span>
+                            </div>
+                            <div class="h-[1px] bg-slate-800 my-2"></div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] text-slate-500">Last P/L</span>
+                                <span class="text-xs font-mono ${agent.last_trade?.profit_loss >= 0 ? 'text-emerald-500' : 'text-red-500'}">
+                                    ${agent.last_trade?.profit_loss >= 0 ? '+' : ''}${agent.last_trade?.profit_loss.toFixed(2) || '0.00'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Update Trade Logs
+                const logs = document.getElementById('tradeLogs');
+                logs.innerHTML = trades.slice(0, 10).map(trade => `
+                    <tr>
+                        <td class="py-4 font-bold text-slate-300">${trade.agent}</td>
+                        <td class="py-4 text-slate-500">${trade.strategy}</td>
+                        <td class="py-4 font-mono text-slate-400">$${trade.amount.toFixed(2)}</td>
+                        <td class="py-4 font-bold ${trade.success ? 'text-emerald-500' : 'text-red-500'}">
+                            ${trade.success ? '+' : ''}${trade.profit_loss.toFixed(2)}
+                        </td>
+                        <td class="py-4 text-right font-mono text-slate-300">$${trade.balance_after.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+
+                // Update Stats
+                const totalCap = agents.reduce((sum, a) => sum + a.balance, 0);
+                const activeCount = agents.filter(a => a.is_active).length;
+                document.getElementById('totalCapital').innerText = `$${totalCap.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                document.getElementById('activeCount').innerText = activeCount;
+
+            } catch (err) {
+                console.error("Failed to fetch updates:", err);
+            }
+        }
+
+        // ML Scanner implementation
+        document.getElementById('predictForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const val = parseFloat(new FormData(e.target).get('total_ether_received'));
+
+            // Mocking the other features for the scanner UI simple demo
+            const data = {
+                avg_min_sent: 100, avg_min_received: 100, time_diff: 500,
+                unique_received_from: 2, min_val_received: val * 0.1,
+                max_val_received: val * 1.5, avg_val_received: val,
+                min_val_sent: 0, avg_val_sent: 0, total_transactions: 10,
+                total_ether_received: val, total_ether_balance: val
+            };
+
+            const resDiv = document.getElementById('scanResult');
+            resDiv.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                const score = Math.round(result.reliability_score * 100);
+
+                document.getElementById('resScore').innerText = score + '%';
+                const bar = document.getElementById('resBar');
+                bar.style.width = score + '%';
+                bar.className = `h-full transition-all duration-1000 ${score < 50 ? 'bg-red-500' : score < 80 ? 'bg-yellow-500' : 'bg-emerald-500'}`;
+            } catch (err) {
+                console.error(err);
+            }
+        });
+
+        // Initialize and Poll
+        updateDashboard();
+        setInterval(updateDashboard, 5000);
+    </script>
+</body>
+</html>
