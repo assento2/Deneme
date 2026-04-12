@@ -1,9 +1,11 @@
 fastapi
 uvicorn
+httpx
+joblib
 pandas
+numpy
 scikit-learn
 xgboost
-joblib
-requests
-pydantic
+pytest
+pytest-asyncio
 python-multipart

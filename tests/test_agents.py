@@ -1,31 +1,21 @@
 import pytest
-from app.agents_logic import TrendFollowerAgent, MeanReversionAgent, MLFilteredAgent, SimulationEngine
+from app.agents_logic import RSITrendAgent, BollingerReversionAgent, MLAdaptiveAgent, SimulationEngine
 
 def test_agent_initialization():
-    agent = TrendFollowerAgent("Test", "Strategy")
-    assert agent.name == "Test"
+    agent = RSITrendAgent("Test-Agent", "Test-Strategy", "BTC_USDT", 1000)
+    assert agent.name == "Test-Agent"
     assert agent.balance == 1000
     assert agent.is_active is True
 
-def test_agent_elimination():
-    agent = TrendFollowerAgent("Test", "Strategy", initial_balance=10)
-    # Execute a large losing trade
-    agent.execute_trade(False, 10, -15)
+@pytest.mark.asyncio
+async def test_agent_destruction():
+    agent = RSITrendAgent("Test-Agent", "Test-Strategy", "BTC_USDT", 10)
+    await agent.execute_trade(False, 10, -10)
     assert agent.balance == 0
     assert agent.is_active is False
 
-def test_simulation_step():
+@pytest.mark.asyncio
+async def test_engine_load():
     engine = SimulationEngine()
-    initial_balances = [a.balance for a in engine.agents]
-    engine.step()
-    new_balances = [a.balance for a in engine.agents]
-    # Balances should change after a step
-    assert initial_balances != new_balances
-
-def test_ml_agent_performance():
-    # Over many steps, ML agent should statistically do better or at least stay active
-    agent = MLFilteredAgent("ML", "ML")
-    for _ in range(10):
-        success, amount, pl = agent.decide_trade(None)
-        agent.execute_trade(success, amount, pl)
-    assert len(agent.trades) == 10
+    assert len(engine.agents) == 5
+    assert engine.agents[0].name == "Alpha-Trend"

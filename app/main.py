@@ -16,19 +16,21 @@ trade_history = []
 
 async def run_simulation():
     while True:
-        engine.step()
+        await engine.step()
         for agent in engine.agents:
             if agent.is_active and agent.trades:
                 last_trade = agent.trades[-1]
-                trade_entry = {
-                    "agent": agent.name,
-                    "strategy": agent.strategy_name,
-                    **last_trade
-                }
-                trade_history.append(trade_entry)
-                if len(trade_history) > 50:
-                    trade_history.pop(0)
-        await asyncio.sleep(5)
+                # Avoid duplicate entries in global trade history
+                if not trade_history or (trade_history[-1]["agent"] != agent.name or trade_history[-1]["timestamp"] != last_trade["timestamp"]):
+                    trade_entry = {
+                        "agent": agent.name,
+                        "strategy": agent.strategy_name,
+                        **last_trade
+                    }
+                    trade_history.append(trade_entry)
+                    if len(trade_history) > 50:
+                        trade_history.pop(0)
+        await asyncio.sleep(15) # Longer interval for realism with 5m data
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,6 +100,13 @@ async def get_agents():
 @app.get("/trades")
 async def get_trades():
     return trade_history[::-1]
+
+@app.get("/agent/{agent_name}/trades")
+async def get_agent_trades(agent_name: str):
+    for agent in engine.agents:
+        if agent.name == agent_name:
+            return agent.trades[::-1]
+    raise HTTPException(status_code=404, detail="Agent not found")
 
 @app.get("/health")
 async def health():
