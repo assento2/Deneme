@@ -2,10 +2,25 @@ import random
 import time
 import json
 import os
+import requests
 from abc import ABC, abstractmethod
 from datetime import datetime
 
 STATE_FILE = "agent_state.json"
+
+class TelegramNotifier:
+    def __init__(self):
+        self.token = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+    def notify(self, message):
+        if not self.token or not self.chat_id:
+            return
+        try:
+            url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+            requests.post(url, json={"chat_id": self.chat_id, "text": message, "parse_mode": "HTML"}, timeout=5)
+        except Exception as e:
+            print(f"Telegram error: {e}")
 
 class TradingAgent(ABC):
     def __init__(self, name, strategy_name, initial_balance=1000):
@@ -20,7 +35,7 @@ class TradingAgent(ABC):
     def decide_trade(self, market_data):
         pass
 
-    def execute_trade(self, success, amount, profit_loss):
+    def execute_trade(self, success, amount, profit_loss, notifier=None):
         if not self.is_active:
             return
 
@@ -34,13 +49,25 @@ class TradingAgent(ABC):
         }
         self.trades.append(trade_record)
 
-        # Keep trade history manageable
         if len(self.trades) > 20:
             self.trades.pop(0)
+
+        # Notify via Telegram
+        if notifier:
+            emoji = "✅" if success else "❌"
+            pl_sign = "+" if profit_loss >= 0 else ""
+            msg = (f"🤖 <b>Agent {self.name}</b>\n"
+                   f"Strategy: {self.strategy_name}\n"
+                   f"{emoji} Trade Amount: ${amount:.2f}\n"
+                   f"💰 P/L: {pl_sign}{profit_loss:.2f}\n"
+                   f"🏦 New Balance: ${self.balance:.2f}")
+            notifier.notify(msg)
 
         if self.balance <= 0:
             self.balance = 0
             self.is_active = False
+            if notifier:
+                notifier.notify(f"💀 <b>Agent {self.name} has been DESTROYED!</b>")
 
 class TrendFollowerAgent(TradingAgent):
     def decide_trade(self, market_data):
@@ -68,6 +95,7 @@ class MLFilteredAgent(TradingAgent):
 
 class SimulationEngine:
     def __init__(self):
+        self.notifier = TelegramNotifier()
         self.agents = [
             TrendFollowerAgent("Alpha-Trend", "Trend Following"),
             MeanReversionAgent("Beta-Steady", "Mean Reversion"),
@@ -81,7 +109,7 @@ class SimulationEngine:
         for agent in self.agents:
             if agent.is_active:
                 success, amount, pl = agent.decide_trade(None)
-                agent.execute_trade(success, amount, pl)
+                agent.execute_trade(success, amount, pl, self.notifier)
         self.save_state()
 
     def save_state(self):
