@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import os
 import asyncio
+import httpx
 from contextlib import asynccontextmanager
 from typing import List
 from app.agents_logic import SimulationEngine
@@ -16,7 +17,20 @@ engine = SimulationEngine()
 trade_history = []
 
 async def run_simulation():
+    # Render Keep-Alive: Self-ping every 14 minutes
+    last_ping = 0
     while True:
+        current_time = asyncio.get_event_loop().time()
+        # Self-ping to prevent sleep (Render free tier timeout is 15 mins)
+        if current_time - last_ping > 840: # 14 minutes
+            try:
+                port = int(os.getenv("PORT", 8000))
+                async with httpx.AsyncClient() as client:
+                    await client.get(f"http://localhost:{port}/health", timeout=5)
+                last_ping = current_time
+            except Exception:
+                pass
+
         await engine.step()
         for agent in engine.agents:
             if agent.is_active and agent.trades:
