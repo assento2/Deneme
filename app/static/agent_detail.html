@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ajan Detayı - CryptoSafe AI</title>
+    <title>Ajan Analizi - CryptoSafe AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Space Grotesk', sans-serif; background-color: #020617; color: #f8fafc; }
+        body { font-family: 'Space Grotesk', sans-serif; background-color: #020617; color: #f8fafc; margin: 0; padding: 24px; }
         .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
     </style>
 </head>
-<body class="min-h-screen p-6">
+<body>
     <nav class="max-w-[1400px] mx-auto mb-10 flex justify-between items-center">
         <a href="/" class="flex items-center space-x-3 group">
             <div class="bg-slate-800 p-2 rounded-lg group-hover:bg-blue-600 transition">
@@ -21,161 +24,142 @@
             </div>
             <span class="font-bold text-xl">Panel'e Dön</span>
         </a>
-        <div id="agentBadge" class="px-4 py-2 rounded-full glass text-blue-400 font-mono text-sm uppercase"></div>
+        <div id="agentBadge" class="px-4 py-2 rounded-full glass text-blue-400 font-mono text-sm uppercase tracking-tighter">YÜKLENİYOR...</div>
     </nav>
 
     <main class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Left: Charts & Reasonings -->
         <div class="lg:col-span-2 space-y-8">
             <div class="glass rounded-3xl p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold" id="agentNameDisplay">Ajan Analizi</h2>
                     <div class="flex space-x-2">
+                        <span id="posBadge" class="hidden px-3 py-1 rounded-md bg-blue-500/10 text-blue-500 text-xs font-bold uppercase">İŞLEMDE</span>
                         <span class="px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-bold" id="agentStatus">AKTİF</span>
                     </div>
                 </div>
-                <div id="chartContainer" class="w-full h-[500px] rounded-2xl overflow-hidden"></div>
+                <div id="chartContainer" style="width: 100%; height: 500px;" class="rounded-2xl overflow-hidden bg-slate-950"></div>
             </div>
 
             <div class="glass rounded-3xl p-8">
-                <h3 class="text-xl font-bold mb-6">Son İşlem Yönergesi & Mantığı</h3>
-                <div id="lastReasoning" class="p-6 bg-slate-950/50 rounded-2xl border border-slate-800 italic text-slate-300">
-                    Henüz işlem açılmadı...
+                <h3 class="text-xl font-bold mb-6">Aktif Pozisyon / Son Strateji</h3>
+                <div id="activePosCard" class="p-6 bg-slate-950/50 rounded-2xl border border-slate-800 hidden mb-6">
+                    <div class="grid grid-cols-3 gap-6 text-center">
+                        <div><p class="text-[10px] text-slate-500 uppercase">Giriş</p><p id="posEntry" class="font-bold">--</p></div>
+                        <div><p class="text-[10px] text-slate-500 uppercase">Yön</p><p id="posSide" class="font-bold text-blue-400">--</p></div>
+                        <div><p class="text-[10px] text-slate-500 uppercase">Kâr Hedefi (TP)</p><p id="posTP" class="font-bold text-emerald-400">--</p></div>
+                    </div>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6" id="indicatorGrid">
-                    <!-- Indicators populated by JS -->
-                </div>
+                <div id="lastReasoning" class="p-6 bg-slate-950/50 rounded-2xl border border-slate-800 italic text-slate-300">Strateji analizi yapılıyor...</div>
             </div>
         </div>
 
-        <!-- Right: Performance & History -->
         <div class="space-y-8">
             <div class="glass rounded-3xl p-8 bg-gradient-to-br from-blue-600/10 to-transparent">
                 <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-6">Performans Karnesi</h3>
                 <div class="space-y-6">
                     <div>
                         <p class="text-slate-500 text-xs mb-1">Güncel Bakiye</p>
-                        <p class="text-4xl font-bold" id="balanceDisplay">$0.00</p>
+                        <p class="text-4xl font-bold" id="balanceDisplay">$1,000.00</p>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="p-4 rounded-2xl bg-slate-950/40">
+                        <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
                             <p class="text-slate-500 text-[10px] uppercase">Toplam İşlem</p>
                             <p class="text-xl font-bold" id="tradeCount">0</p>
                         </div>
-                        <div class="p-4 rounded-2xl bg-slate-950/40">
+                        <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
                             <p class="text-slate-500 text-[10px] uppercase">Başarı Oranı</p>
                             <p class="text-xl font-bold text-emerald-400" id="winRate">0%</p>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="glass rounded-3xl p-8">
-                <h3 class="text-lg font-bold mb-6">İşlem Geçmişi</h3>
-                <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar" id="tradeHistory">
-                    <!-- Trades -->
-                </div>
+                <h3 class="text-lg font-bold mb-6">Detaylı İşlem Geçmişi</h3>
+                <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar min-h-[100px]" id="tradeHistory"></div>
             </div>
         </div>
     </main>
 
     <script>
         const params = new URLSearchParams(window.location.search);
-        const agentName = params.get('name');
+        const agentName = params.get('name') || "Titan-AI";
         let chart, candleSeries;
 
         function initChart() {
             const container = document.getElementById('chartContainer');
+            if (!container) return;
             chart = LightweightCharts.createChart(container, {
-                layout: {
-                    background: { type: 'solid', color: '#0f172a' },
-                    textColor: '#94a3b8'
-                },
+                width: container.clientWidth,
+                height: 500,
+                layout: { background: { type: LightweightCharts.ColorType.Solid, color: '#0f172a' }, textColor: '#94a3b8' },
                 grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
-                rightPriceScale: { borderColor: '#334155' },
-                timeScale: { borderColor: '#334155', timeVisible: true },
+                timeScale: { timeVisible: true, secondsVisible: true },
             });
-            candleSeries = chart.addCandlestickSeries({
-                upColor: '#10b981', downColor: '#ef4444', borderVisible: false,
-                wickUpColor: '#10b981', wickDownColor: '#ef4444'
-            });
-
-            new ResizeObserver(entries => {
-                if (entries.length === 0 || !entries[0].contentRect) return;
-                const { width, height } = entries[0].contentRect;
-                chart.applyOptions({ width, height });
-            }).observe(container);
+            candleSeries = chart.addCandlestickSeries({ upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444' });
+            window.addEventListener('resize', () => { chart.applyOptions({ width: container.clientWidth }); });
         }
 
         async function updateData() {
-            if (!agentName) return;
             try {
-                const [agentsRes, tradesRes] = await Promise.all([
+                const [aRes, tRes] = await Promise.all([
                     fetch('/agents'),
-                    fetch(`/agent/${agentName}/trades`)
+                    fetch('/agent/' + encodeURIComponent(agentName) + '/trades')
                 ]);
-                const agents = await agentsRes.json();
-                const agent = agents.find(a => a.name === agentName);
-                const trades = await tradesRes.json();
+                const agents = await aRes.json();
+                const trades = await tRes.json();
+                const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
 
                 if (agent) {
-                    document.getElementById('agentBadge').innerText = agent.symbol;
+                    document.getElementById('agentBadge').innerText = agent.symbol + " | 5M ANALİZ";
                     document.getElementById('agentNameDisplay').innerText = agent.name;
-                    document.getElementById('balanceDisplay').innerText = `$${agent.balance.toLocaleString()}`;
+                    document.getElementById('balanceDisplay').innerText = "$" + agent.balance.toLocaleString(undefined, {minimumFractionDigits: 2});
                     document.getElementById('tradeCount').innerText = agent.trade_count;
-                    document.getElementById('agentStatus').innerText = agent.is_active ? 'AKTİF' : 'ELENDİ';
 
-                    if (agent.last_trade) {
-                        document.getElementById('lastReasoning').innerHTML = `
-                            <p class="text-blue-400 font-bold mb-2">İşlem Yönergesi:</p>
-                            "${agent.last_trade.reasoning}"
-                            <p class="text-[10px] text-slate-500 mt-4 font-mono">Giriş Fiyatı: ${agent.last_trade.entry_price}</p>
-                        `;
-
-                        const indHtml = Object.entries(agent.last_trade.indicators).map(([k, v]) => `
-                            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-                                <p class="text-[10px] text-slate-500 uppercase">${k}</p>
-                                <p class="text-sm font-bold text-slate-300">${v}</p>
-                            </div>
-                        `).join('');
-                        document.getElementById('indicatorGrid').innerHTML = indHtml;
+                    if (agent.active_position) {
+                        document.getElementById('posBadge').classList.remove('hidden');
+                        document.getElementById('activePosCard').classList.remove('hidden');
+                        document.getElementById('posEntry').innerText = agent.active_position.entry;
+                        document.getElementById('posSide').innerText = agent.active_position.side;
+                        document.getElementById('posTP').innerText = agent.active_position.tp;
+                    } else {
+                        document.getElementById('posBadge').classList.add('hidden');
+                        document.getElementById('activePosCard').classList.add('hidden');
                     }
 
-                    // Calculate win rate
-                    const wins = trades.filter(t => t.success).length;
-                    const wr = trades.length > 0 ? (wins / trades.length * 100).toFixed(1) : 0;
-                    document.getElementById('winRate').innerText = `${wr}%`;
+                    if (agent.last_trade) {
+                        document.getElementById('lastReasoning').innerText = `Son Kapatılan İşlem Özeti: ${agent.last_trade.reasoning}`;
+                    }
 
-                    // Update History
+                    const wins = trades.filter(t => t.success).length;
+                    document.getElementById('winRate').innerText = (trades.length > 0 ? (wins/trades.length*100).toFixed(1) : 0) + "%";
+
                     document.getElementById('tradeHistory').innerHTML = trades.map(t => `
-                        <div class="p-4 rounded-2xl bg-slate-950/30 border border-slate-800/50 flex justify-between items-center">
-                            <div>
-                                <p class="text-xs font-bold ${t.success ? 'text-emerald-500' : 'text-red-500'}">${t.symbol}</p>
-                                <p class="text-[10px] text-slate-500">${new Date(t.timestamp).toLocaleTimeString()}</p>
+                        <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/50 text-xs hover:bg-slate-900/60 transition space-y-2">
+                            <div class="flex justify-between font-bold">
+                                <span class="${t.side === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${t.side} | ${t.symbol}</span>
+                                <span class="${t.profit_loss >= 0 ? 'text-emerald-500' : 'text-rose-500'}">%${t.profit_pct.toFixed(2)}</span>
                             </div>
-                            <div class="text-right">
-                                <p class="font-bold text-sm">${t.profit_loss > 0 ? '+' : ''}${t.profit_loss}</p>
-                                <p class="text-[10px] text-slate-600">$${t.balance_after}</p>
+                            <div class="grid grid-cols-2 text-slate-500">
+                                <span>Giriş: ${t.entry_price}</span>
+                                <span class="text-right">Çıkış: ${t.exit_price}</span>
+                            </div>
+                            <div class="flex justify-between items-center pt-1 border-t border-slate-800/50">
+                                <span class="text-[10px] text-slate-600 font-mono">${new Date(t.timestamp).toLocaleString('tr-TR')}</span>
+                                <span class="font-bold text-slate-300">$${t.profit_loss.toFixed(2)}</span>
                             </div>
                         </div>
                     `).join('');
 
-                    // Update Chart with real MEXC data
-                    const klineRes = await fetch(`/kline?symbol=${agent.symbol}`);
-                    const klineData = await klineRes.json();
-                    if (klineData) {
-                        const formatted = klineData.map(d => ({
-                            time: d.time, open: d.open, high: d.high, low: d.low, close: d.close
-                        }));
-                        candleSeries.setData(formatted);
+                    const kRes = await fetch('/kline?symbol=' + agent.symbol);
+                    if (kRes.ok) {
+                        const kData = await kRes.json();
+                        candleSeries.setData(kData.map(d => ({ time: Math.floor(d.time / 1000), open: d.open, high: d.high, low: d.low, close: d.close })));
                     }
                 }
-            } catch (err) { console.error(err); }
+            } catch (e) { console.error(e); }
         }
 
-        initChart();
-        updateData();
-        setInterval(updateData, 10000);
+        window.onload = () => { initChart(); updateData(); setInterval(updateData, 10000); };
     </script>
 </body>
 </html>

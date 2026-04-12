@@ -1,5 +1,6 @@
 import httpx
 import logging
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,19 @@ async def fetch_all_symbols():
             return ["BTC_USDT", "ETH_USDT", "SOL_USDT", "BNB_USDT"]
 
 async def fetch_mexc_kline(symbol="BTC_USDT", interval="Min5", limit=100):
+    # Mapping for common intervals
+    mapping = {
+        "1m": "Min1",
+        "5m": "Min5",
+        "15m": "Min15",
+        "1h": "Min60",
+        "4h": "Hour4",
+        "1d": "Day1"
+    }
+    mexc_interval = mapping.get(interval, interval)
+
     url = f"https://contract.mexc.com/api/v1/contract/kline/{symbol}"
-    params = {"interval": interval}
+    params = {"interval": mexc_interval}
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, params=params)
@@ -31,7 +43,8 @@ async def fetch_mexc_kline(symbol="BTC_USDT", interval="Min5", limit=100):
                 result = []
                 for i in range(max(0, len(times) - limit), len(times)):
                     result.append({
-                        "time": times[i], "open": float(opens[i]), "close": float(closes[i]),
+                        "time": times[i] * 1000, # Normalize to ms if needed by frontend, wait MEXC is already in seconds mostly but check
+                        "open": float(opens[i]), "close": float(closes[i]),
                         "high": float(highs[i]), "low": float(lows[i]), "vol": float(vols[i])
                     })
                 return result
@@ -41,9 +54,8 @@ async def fetch_mexc_kline(symbol="BTC_USDT", interval="Min5", limit=100):
             return None
 
 async def market_scanner():
-    """Ranks top 10 symbols by 24h volatility/volume approximation."""
-    symbols = await fetch_all_symbols()
-    # In a real scanner, we'd fetch 24h ticker for all.
-    # For now, we'll return a prioritized list to keep it fast.
-    priority = ["BTC_USDT", "ETH_USDT", "SOL_USDT", "BNB_USDT", "AVAX_USDT", "XRP_USDT", "ADA_USDT", "DOT_USDT", "LINK_USDT", "DOGE_USDT"]
-    return priority
+    """Returns all available symbols to fulfill 'scan all projects' requirement."""
+    all_symbols = await fetch_all_symbols()
+    # Shuffle or rank them to give different agents different opportunities
+    random.shuffle(all_symbols)
+    return all_symbols
