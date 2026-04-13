@@ -19,12 +19,11 @@ async def test_agent_decision_logic():
         "highs": np.array([105.0]*100),
         "lows": np.array([95.0]*100)
     }
-    decision = agent.decide_trade(md)
-    # Just verify it returns something (either None or an Entry dict)
-    # The exact logic depends on the ML ensemble output which can be 0 or 100
-    if decision:
-        assert "action" in decision
-        assert "confidence" in decision
+    # decide_trade is now an async function
+    await agent.decide_trade(md)
+    # Check if a position was opened or not (it might be None if confidence is low)
+    if agent.active_position:
+        assert agent.active_position.symbol == "BTC_USDT"
 
 @pytest.mark.asyncio
 async def test_simulation_engine_initialization():
