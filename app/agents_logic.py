@@ -82,7 +82,8 @@ class IntelligenceAgent:
     def _prepare_features(self, df: pd.DataFrame):
         features = df[['rsi', 'volatility', 'mom']].copy()
         features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
-        return features
+        # Explicitly cast to float32 to avoid StringDtype issues in some pandas versions with FLAML
+        return features.astype(np.float32)
 
     def train(self, df: pd.DataFrame):
         if len(df) < self.min_train_size: return
@@ -90,11 +91,11 @@ class IntelligenceAgent:
         if len(df_ind) < 50: return
         features = self._prepare_features(df_ind)
         target = (df_ind['close'].shift(-5) > df_ind['close']).astype(int)
-        X = features.iloc[:-5].values
-        y = target.iloc[:-5].values
+        X = features.iloc[:-5]
+        y = target.iloc[:-5]
         try:
             settings = {
-                "time_budget": 5,  # 5 seconds per agent for AutoML
+                "time_budget": 10,  # Increased for better accuracy
                 "metric": 'accuracy',
                 "task": 'classification',
                 "log_file_name": "",
@@ -159,7 +160,7 @@ class IntelligenceAgent:
             elif rsi > 65 and ema_diff < 0: side = "SHORT"
             return {"side": side, "confidence": 50.0, "mode": "learning"}
 
-        X_test = self._prepare_features(last_row).values
+        X_test = self._prepare_features(last_row)
         prob = self.model.predict_proba(X_test)[0][1]
         side = "NONE"
         confidence = 0
@@ -292,7 +293,24 @@ class SimulationEngine:
             logger.error(f"Load state error: {e}")
 
     async def step(self):
-        from app.utils.mexc_api import fetch_mexc_kline
+        from app.utils.mexc_api import fetch_mexc_kline, market_scanner
+
+        # Periodic Market Realignment: Ensure agents are on the most relevant pairs
+        try:
+            top_pairs = await market_scanner()
+            # If an agent is not in a position, consider re-assigning it to a top trending pair
+            for i, agent in enumerate(self.agents):
+                if not agent.active_position and i < len(top_pairs):
+                    # Rotate pairs if not currently in trade to catch new trends
+                    if agent.symbol not in top_pairs[:10]:
+                        new_symbol = top_pairs[i % 20]
+                        if new_symbol != agent.symbol:
+                            logger.info(f"Re-aligning {agent.name} from {agent.symbol} to {new_symbol}")
+                            agent.symbol = new_symbol
+                            agent.intelligence.is_trained = False # Re-train for new pair
+        except Exception as e:
+            logger.error(f"Market realignment error: {e}")
+
         notifications = []
         for agent in self.agents:
             try:

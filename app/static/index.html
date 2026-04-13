@@ -74,6 +74,16 @@
                 </div>
             </div>
 
+            <div class="glass rounded-[32px] p-8 border-emerald-500/10">
+                <div class="flex items-center space-x-3 mb-6">
+                    <i class="fas fa-radar text-emerald-500"></i>
+                    <h3 class="text-lg font-bold" id="t-opp-title">Market Opportunities</h3>
+                </div>
+                <div id="oppList" class="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    <p class="text-slate-500 text-xs italic">Scanning market for high-confidence setups...</p>
+                </div>
+            </div>
+
             <div class="glass rounded-[32px] p-8">
                 <div class="flex items-center space-x-3 mb-6">
                     <i class="fas fa-shield-halved text-emerald-500"></i>
@@ -112,6 +122,7 @@
                 summary: "AĞ ÖZETİ",
                 totalCap: "TOPLAM SERMAYE",
                 activeAgents: "AKTİF AJANLAR",
+                oppTitle: "Piyasa Fırsatları",
                 security: "Güvenlik Filtresi",
                 scanBtn: "Projeyi Tara",
                 scoreLabel: "Güven Skoru:",
@@ -132,6 +143,7 @@
                 summary: "NETWORK SUMMARY",
                 totalCap: "TOTAL CAPITAL",
                 activeAgents: "ACTIVE AGENTS",
+                oppTitle: "Market Opportunities",
                 security: "Security Filter",
                 scanBtn: "Scan Project",
                 scoreLabel: "Confidence Score:",
@@ -161,6 +173,7 @@
             document.getElementById('t-summary').innerText = t.summary;
             document.getElementById('t-total-cap').innerText = t.totalCap;
             document.getElementById('t-active-agents').innerText = t.activeAgents;
+            document.getElementById('t-opp-title').innerText = t.oppTitle;
             document.getElementById('t-security').innerText = t.security;
             document.getElementById('scanBtn').innerText = t.scanBtn;
             document.getElementById('t-score-label').innerText = t.scoreLabel;
@@ -168,9 +181,10 @@
         }
 
         async function fetchData() {
-            const [aRes, tRes] = await Promise.all([fetch('/agents'), fetch('/trades')]);
+            const [aRes, tRes, oRes] = await Promise.all([fetch('/agents'), fetch('/trades'), fetch('/opportunities')]);
             const agents = await aRes.json();
             const trades = await tRes.json();
+            const opps = await oRes.json();
             const t = i18n[currentLang];
 
             const grid = document.getElementById('agentGrid');
@@ -226,6 +240,18 @@
             const total = agents.reduce((sum, a) => sum + a.balance, 0);
             document.getElementById('totalCapital').innerText = "$" + total.toLocaleString(undefined, {minimumFractionDigits: 2});
             document.getElementById('activeAgents').innerText = agents.length;
+
+            if (opps.length > 0) {
+                document.getElementById('oppList').innerHTML = opps.map(o => `
+                    <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-sm">${o.symbol}</p>
+                            <p class="text-[10px] text-slate-500">Confidence: ${o.confidence.toFixed(1)}%</p>
+                        </div>
+                        <span class="text-[10px] font-bold px-3 py-1 rounded ${o.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${o.side}</span>
+                    </div>
+                `).join('');
+            }
         }
 
         async function scanProject() {

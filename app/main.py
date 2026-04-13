@@ -13,15 +13,53 @@ from app.utils.notifier import send_telegram_msg, format_notification
 # Initialize Simulation state
 engine = SimulationEngine()
 trade_history = []
+market_opportunities = []
+
+async def perform_market_sweep():
+    """Scans top projects and performs ML inference for global opportunities."""
+    from app.utils.mexc_api import market_scanner
+    from app.agents_logic import IntelligenceAgent
+    from datetime import datetime
+    import pandas as pd
+
+    symbols = await market_scanner()
+    top_10 = symbols[:10]
+    scanner = IntelligenceAgent("SweepScanner")
+
+    new_opps = []
+    for sym in top_10:
+        try:
+            data = await fetch_mexc_kline(sym, interval="5m", limit=300)
+            if data:
+                df = pd.DataFrame(data)
+                scanner.train(df)
+                pred = scanner.predict(df)
+                if pred["side"] != "NONE":
+                    new_opps.append({
+                        "symbol": sym,
+                        "side": pred["side"],
+                        "confidence": pred["confidence"],
+                        "timestamp": datetime.now().isoformat()
+                    })
+        except: continue
+
+    global market_opportunities
+    market_opportunities = sorted(new_opps, key=lambda x: x["confidence"], reverse=True)
 
 async def run_simulation():
     """Background task to tick agents and update logs."""
     # Self-keep-alive mechanism
     RENDER_URL = os.getenv("RENDER_EXTERNAL_URL")
+    step_count = 0
 
     while True:
         try:
+            # Global Market Sweep every 15 mins (approx 15 steps of 1m)
+            if step_count % 15 == 0:
+                asyncio.create_task(perform_market_sweep())
+
             events = await engine.step()
+            step_count += 1
 
             # Send notifications
             for event in events:
@@ -70,6 +108,10 @@ async def get_agents():
 @app.get("/trades")
 async def get_trades():
     return trade_history
+
+@app.get("/opportunities")
+async def get_opportunities():
+    return market_opportunities
 
 @app.get("/agent/{agent_name}/trades")
 async def get_agent_trades(agent_name: str):
