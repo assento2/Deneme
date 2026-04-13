@@ -8,29 +8,27 @@ from contextlib import asynccontextmanager
 from typing import List
 from app.agents_logic import SimulationEngine
 from app.utils.mexc_api import fetch_mexc_kline
+from app.utils.notifier import send_telegram_msg, format_notification
 
-# Simulation state
+# Initialize Simulation state
 engine = SimulationEngine()
 trade_history = []
 
 async def run_simulation():
-    # Render Keep-Alive: Self-ping every 14 minutes to prevent sleep
-    last_ping = 0
+    """Background task to tick agents and update logs."""
+    # Self-keep-alive mechanism
+    RENDER_URL = os.getenv("RENDER_EXTERNAL_URL")
 
     while True:
         try:
-            current_time = asyncio.get_event_loop().time()
-            if current_time - last_ping > 840:
-                try:
-                    # Self-ping
-                    async with httpx.AsyncClient() as client:
-                        await client.get("http://localhost:8000/health", timeout=5)
-                    last_ping = current_time
-                except Exception: pass
+            events = await engine.step()
 
-            await engine.step()
+            # Send notifications
+            for event in events:
+                msg = format_notification(event)
+                await send_telegram_msg(msg)
 
-            # Aggregating trade logs for global view
+            # Update global history from engine
             all_trades = []
             for agent in engine.agents:
                 for t in agent.trades:
@@ -38,7 +36,15 @@ async def run_simulation():
 
             all_trades.sort(key=lambda x: x["timestamp"], reverse=True)
             global trade_history
-            trade_history = all_trades[:50]
+            trade_history = all_trades[:100]
+
+            # Ping self to stay awake
+            if RENDER_URL:
+                try:
+                    async with httpx.AsyncClient() as client:
+                        await client.get(f"{RENDER_URL}/health")
+                except:
+                    pass
 
         except Exception as e:
             print(f"Simulation error: {e}")
@@ -75,26 +81,45 @@ async def get_agent_trades(agent_name: str):
 
 @app.get("/kline")
 async def get_kline(symbol: str = "BTC_USDT"):
-    data = await fetch_mexc_kline(symbol=symbol, interval="5m", limit=200)
+    data = await fetch_mexc_kline(symbol=symbol, interval="5m", limit=100)
     if not data:
         raise HTTPException(status_code=503, detail="Market data unavailable")
     return data
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "agents_active": len(engine.agents)}
+    return {
+        "status": "healthy",
+        "agents_active": len(engine.agents),
+        "simulation_running": True
+    }
 
-# Simplified scan endpoint for frontend
 class ScanRequest(BaseModel):
     symbol: str
 
 @app.post("/scan-project")
 async def scan_project(req: ScanRequest):
-    # Simulated project analysis for frontend UI
-    import random
-    confidence = random.randint(30, 95)
-    return {"symbol": req.symbol, "confidence": confidence, "status": "success"}
+    from app.agents_logic import IntelligenceAgent
+    import pandas as pd
 
+    scanner = IntelligenceAgent("Scanner")
+    data = await fetch_mexc_kline(req.symbol, interval="5m", limit=500)
+    if not data:
+        return {"symbol": req.symbol, "confidence": 0, "status": "failed", "error": "Symbol not found"}
+
+    df = pd.DataFrame(data)
+    scanner.train(df)
+    prediction = scanner.predict(df)
+
+    return {
+        "symbol": req.symbol,
+        "confidence": float(prediction.get("confidence", 0)),
+        "side": prediction.get("side", "NONE"),
+        "mode": prediction.get("mode", "learning"),
+        "status": "success"
+    }
+
+# Serve frontend
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
 if __name__ == "__main__":

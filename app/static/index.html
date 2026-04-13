@@ -1,166 +1,262 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoSafe AI - Küresel Ajan Komuta Merkezi</title>
+    <title>CryptoSafe AI - Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-        body { background-color: #020617; color: #f8fafc; font-family: 'Space Grotesk', sans-serif; }
-        .agent-card { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); transition: 0.3s; cursor: pointer; }
-        .agent-card:hover { border-color: #3b82f6; transform: translateY(-2px); }
-        .status-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        body { font-family: 'Space Grotesk', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+        .glass { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
+        .agent-card:hover { transform: translateY(-5px); border-color: rgba(59, 130, 246, 0.5); }
     </style>
 </head>
-<body class="p-6 lg:p-12">
-    <nav class="max-w-[1600px] mx-auto flex justify-between items-center mb-12">
+<body class="p-6 md:p-12">
+    <header class="max-w-[1400px] mx-auto mb-12 flex flex-col md:flex-row justify-between items-center gap-6">
         <div class="flex items-center space-x-4">
-            <div class="bg-blue-600 p-3 rounded-2xl"><i class="fas fa-brain text-2xl text-white"></i></div>
+            <div class="bg-blue-600 p-4 rounded-2xl glow-blue">
+                <i class="fas fa-brain text-white text-3xl"></i>
+            </div>
             <div>
-                <h1 class="text-2xl font-bold tracking-tight">CryptoSafe AI</h1>
-                <p class="text-[10px] text-blue-400 font-mono uppercase tracking-widest">Otonom Ajan Ağı v2.0</p>
+                <h1 class="text-4xl font-bold tracking-tighter">CryptoSafe AI</h1>
+                <p class="text-slate-500 text-sm font-mono uppercase tracking-widest" id="t-subtitle">AUTONOMOUS AGENT NETWORK V2.0</p>
             </div>
         </div>
-        <div class="flex items-center space-x-4 bg-slate-900/50 px-4 py-2 rounded-full border border-slate-800">
-            <span class="w-2 h-2 bg-emerald-500 rounded-full status-pulse"></span>
-            <span class="text-xs font-bold text-slate-300">SİSTEM AKTİF</span>
+        <div class="flex items-center space-x-4">
+            <button onclick="toggleLang()" class="px-4 py-2 rounded-xl glass hover:bg-slate-800 transition text-sm font-bold" id="langBtn">TR</button>
+            <div class="flex items-center space-x-2 bg-slate-950/50 px-5 py-3 rounded-full border border-emerald-500/20">
+                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="text-xs font-bold text-emerald-500 uppercase tracking-widest" id="t-status">SYSTEM ACTIVE</span>
+            </div>
         </div>
-    </nav>
+    </header>
 
-    <main class="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <main class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div class="lg:col-span-3 space-y-8">
-            <div id="agentsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
-
-            <div class="bg-slate-900/40 rounded-3xl border border-slate-800 p-8">
-                <h3 class="text-xl font-bold mb-6 flex items-center">
-                    <i class="fas fa-list-ul text-blue-500 mr-3"></i> Canlı İşlem Günlüğü
-                </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="agentGrid"></div>
+            <div class="glass rounded-[32px] p-8">
+                <div class="flex items-center space-x-3 mb-8">
+                    <i class="fas fa-list-ul text-blue-500"></i>
+                    <h2 class="text-xl font-bold" id="t-log-title">Live Transaction Log</h2>
+                </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="text-slate-500 text-[10px] uppercase font-bold border-b border-slate-800">
-                            <tr>
-                                <th class="pb-4">Ajan</th>
-                                <th class="pb-4">Parite</th>
-                                <th class="pb-4">Yön</th>
-                                <th class="pb-4">Kâr/Zarar</th>
-                                <th class="pb-4 text-right">Bakiye</th>
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="text-slate-500 border-b border-slate-800">
+                                <th class="pb-4 font-medium" id="t-h-agent">AGENT</th>
+                                <th class="pb-4 font-medium" id="t-h-pair">PAIR</th>
+                                <th class="pb-4 font-medium" id="t-h-dir">SIDE</th>
+                                <th class="pb-4 font-medium text-right" id="t-h-pnl">PNL</th>
+                                <th class="pb-4 font-medium text-right" id="t-h-bal">BALANCE</th>
                             </tr>
                         </thead>
-                        <tbody id="tradeLogs" class="text-sm divide-y divide-slate-800/50"></tbody>
+                        <tbody id="tradeLog"></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
         <div class="space-y-8">
-            <div class="bg-gradient-to-br from-blue-600/20 to-indigo-600/10 rounded-3xl border border-blue-500/20 p-8">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Ağ Özeti</h3>
-                <div class="space-y-4">
-                    <div class="bg-slate-950/40 p-4 rounded-2xl">
-                        <p class="text-[10px] text-slate-500 uppercase mb-1">Toplam Sermaye</p>
-                        <p id="totalCapital" class="text-2xl font-bold">$0.00</p>
+            <div class="glass rounded-[32px] p-8 border-blue-500/10">
+                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-6" id="t-summary">Network Summary</h3>
+                <div class="space-y-6">
+                    <div>
+                        <p class="text-slate-500 text-xs mb-1" id="t-total-cap">TOTAL CAPITAL</p>
+                        <p class="text-4xl font-bold tracking-tighter" id="totalCapital">$0.00</p>
                     </div>
-                    <div class="bg-slate-950/40 p-4 rounded-2xl">
-                        <p class="text-[10px] text-slate-500 uppercase mb-1">Aktif Ajanlar</p>
-                        <p id="activeCount" class="text-2xl font-bold">0</p>
+                    <div>
+                        <p class="text-slate-500 text-xs mb-1" id="t-active-agents">ACTIVE AGENTS</p>
+                        <p class="text-4xl font-bold tracking-tighter" id="activeAgents">0</p>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-slate-900/40 rounded-3xl border border-slate-800 p-8">
-                <h3 class="text-lg font-bold mb-6 flex items-center">
-                    <i class="fas fa-shield-alt text-emerald-500 mr-3"></i> Güvenlik Filtresi
-                </h3>
-                <form id="predictForm" class="space-y-4">
-                    <input type="text" name="symbol" value="BTC_USDT" placeholder="Örn: ETH_USDT" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl p-3 text-sm outline-none focus:border-blue-500">
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-bold text-sm transition">Projeyi Tara</button>
-                </form>
-                <div id="resDiv" class="mt-4 p-4 bg-slate-950/40 rounded-xl border border-slate-800 hidden">
-                    <p class="text-xs text-slate-500 mb-1">Güven Skoru:</p>
-                    <p id="resScore" class="font-bold text-xl text-emerald-400">%0</p>
+            <div class="glass rounded-[32px] p-8">
+                <div class="flex items-center space-x-3 mb-6">
+                    <i class="fas fa-shield-halved text-emerald-500"></i>
+                    <h3 class="text-lg font-bold" id="t-security">Security Filter</h3>
+                </div>
+                <div class="space-y-4">
+                    <input type="text" id="scanSymbol" placeholder="BTC_USDT" class="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:border-blue-500 transition">
+                    <button onclick="scanProject()" id="scanBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-blue-900/20">Scan Project</button>
+                    <div id="scanResult" class="hidden p-5 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500" id="t-score-label">Confidence Score:</span>
+                            <span id="scoreVal" class="font-bold">0%</span>
+                        </div>
+                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div id="scoreBar" class="h-full bg-blue-500 transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                        <p id="scanSide" class="text-center font-bold text-sm uppercase pt-2"></p>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
     <script>
-        async function update() {
-            try {
-                const [aRes, tRes] = await Promise.all([fetch('/agents'), fetch('/trades')]);
-                const agents = await aRes.json();
-                const trades = await tRes.json();
-
-                document.getElementById('agentsGrid').innerHTML = agents.map(a => `
-                    <div class="agent-card rounded-3xl p-6" onclick="location.href='/agent_detail.html?name=${encodeURIComponent(a.name)}'">
-                        <div class="flex justify-between items-start mb-6">
-                            <div>
-                                <h4 class="font-bold text-lg">${a.name}</h4>
-                                <span class="text-[9px] bg-slate-800 px-2 py-1 rounded text-blue-400 font-mono uppercase">${a.symbol}</span>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[10px] text-slate-500 block">BAKİYE</span>
-                                <span class="text-lg font-bold">$${a.balance.toLocaleString()}</span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-[10px]">
-                            <div class="bg-slate-950/40 p-2 rounded-lg text-center">
-                                <p class="text-slate-500">İŞLEMLER</p>
-                                <p class="font-bold">${a.trade_count}</p>
-                            </div>
-                            <div class="bg-slate-950/40 p-2 rounded-lg text-center">
-                                <p class="text-slate-500">KALDIRAÇ</p>
-                                <p class="font-bold text-yellow-500">${a.leverage}x</p>
-                            </div>
-                        </div>
-                        ${a.active_position ? `
-                            <div class="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex justify-between items-center">
-                                <span class="text-[10px] font-bold text-blue-400">AKTİF: ${a.active_position.side}</span>
-                                <span class="text-[10px] text-slate-300 font-mono">${a.active_position.entry}</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-
-                document.getElementById('tradeLogs').innerHTML = trades.map(t => `
-                    <tr>
-                        <td class="py-4 font-bold text-slate-300">${t.agent}</td>
-                        <td class="py-4 text-slate-500 font-mono text-xs">${t.symbol}</td>
-                        <td class="py-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${t.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${t.side}</span></td>
-                        <td class="py-4 font-bold ${t.profit_loss >= 0 ? 'text-emerald-500' : 'text-rose-500'}">${t.profit_loss >= 0 ? '+' : ''}${t.profit_loss}$</td>
-                        <td class="py-4 text-right font-mono text-slate-400">$${t.balance_after}</td>
-                    </tr>
-                `).join('');
-
-                const total = agents.reduce((s, a) => s + a.balance, 0);
-                document.getElementById('totalCapital').innerText = `$${total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-                document.getElementById('activeCount').innerText = agents.length;
-            } catch (e) {}
-        }
-
-        document.getElementById('predictForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const symbol = new FormData(e.target).get('symbol');
-            const resDiv = document.getElementById('resDiv');
-            const resScore = document.getElementById('resScore');
-            resDiv.classList.remove('hidden');
-            resScore.innerText = "...";
-            try {
-                const r = await fetch('/scan-project', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({symbol})
-                });
-                const data = await r.json();
-                resScore.innerText = `%${data.confidence}`;
-                resScore.className = `font-bold text-xl ${data.confidence > 70 ? 'text-emerald-400' : 'text-rose-400'}`;
-            } catch(err) {}
+        let currentLang = 'en';
+        const i18n = {
+            tr: {
+                subtitle: "OTONOM AJAN AĞI V2.0",
+                status: "SİSTEM AKTİF",
+                logTitle: "Canlı İşlem Günlüğü",
+                hAgent: "AJAN",
+                hPair: "PARİTE",
+                hDir: "YÖN",
+                hPnl: "KÂR/ZARAR",
+                hBal: "BAKİYE",
+                summary: "AĞ ÖZETİ",
+                totalCap: "TOPLAM SERMAYE",
+                activeAgents: "AKTİF AJANLAR",
+                security: "Güvenlik Filtresi",
+                scanBtn: "Projeyi Tara",
+                scoreLabel: "Güven Skoru:",
+                posActive: "AKTİF",
+                balance: "BAKİYE",
+                trades: "İŞLEMLER",
+                lev: "KALDIRAÇ"
+            },
+            en: {
+                subtitle: "AUTONOMOUS AGENT NETWORK V2.0",
+                status: "SYSTEM ACTIVE",
+                logTitle: "Live Transaction Log",
+                hAgent: "AGENT",
+                hPair: "PAIR",
+                hDir: "SIDE",
+                hPnl: "PROFIT/LOSS",
+                hBal: "BALANCE",
+                summary: "NETWORK SUMMARY",
+                totalCap: "TOTAL CAPITAL",
+                activeAgents: "ACTIVE AGENTS",
+                security: "Security Filter",
+                scanBtn: "Scan Project",
+                scoreLabel: "Confidence Score:",
+                posActive: "ACTIVE",
+                balance: "BALANCE",
+                trades: "TRADES",
+                lev: "LEVERAGE"
+            }
         };
 
-        setInterval(update, 5000);
-        update();
+        function toggleLang() {
+            currentLang = currentLang === 'en' ? 'tr' : 'en';
+            updateUIStrings();
+        }
+
+        function updateUIStrings() {
+            const t = i18n[currentLang];
+            document.getElementById('langBtn').innerText = currentLang === 'en' ? 'TR' : 'EN';
+            document.getElementById('t-subtitle').innerText = t.subtitle;
+            document.getElementById('t-status').innerText = t.status;
+            document.getElementById('t-log-title').innerText = t.logTitle;
+            document.getElementById('t-h-agent').innerText = t.hAgent;
+            document.getElementById('t-h-pair').innerText = t.hPair;
+            document.getElementById('t-h-dir').innerText = t.hDir;
+            document.getElementById('t-h-pnl').innerText = t.hPnl;
+            document.getElementById('t-h-bal').innerText = t.hBal;
+            document.getElementById('t-summary').innerText = t.summary;
+            document.getElementById('t-total-cap').innerText = t.totalCap;
+            document.getElementById('t-active-agents').innerText = t.activeAgents;
+            document.getElementById('t-security').innerText = t.security;
+            document.getElementById('scanBtn').innerText = t.scanBtn;
+            document.getElementById('t-score-label').innerText = t.scoreLabel;
+            fetchData();
+        }
+
+        async function fetchData() {
+            const [aRes, tRes] = await Promise.all([fetch('/agents'), fetch('/trades')]);
+            const agents = await aRes.json();
+            const trades = await tRes.json();
+            const t = i18n[currentLang];
+
+            const grid = document.getElementById('agentGrid');
+            grid.innerHTML = agents.map(a => `
+                <a href="/agent_detail.html?name=${a.name}" class="agent-card glass rounded-[32px] p-6 transition-all duration-300 block">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold">${a.name}</h3>
+                            <span class="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">${a.symbol}</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] text-slate-500 uppercase">${t.balance}</p>
+                            <p class="text-xl font-bold">$${a.balance.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/50">
+                            <p class="text-[10px] text-slate-500 uppercase">${t.trades}</p>
+                            <p class="text-lg font-bold">${a.trade_count}</p>
+                        </div>
+                        <div class="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/50">
+                            <p class="text-[10px] text-slate-500 uppercase">${t.lev}</p>
+                            <p class="text-lg font-bold text-yellow-500">${a.leverage}x</p>
+                        </div>
+                    </div>
+                    ${a.active_position ? `
+                        <div class="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-xs font-bold text-blue-400 uppercase tracking-widest">${t.posActive}: ${a.active_position.side}</span>
+                            <span class="font-mono text-xs">${a.active_position.entry}</span>
+                        </div>
+                    ` : `
+                        <div class="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl text-center">
+                            <span class="text-xs text-slate-600 uppercase font-bold tracking-widest">NO ACTIVE TRADE</span>
+                        </div>
+                    `}
+                </a>
+            `).join('');
+
+            document.getElementById('tradeLog').innerHTML = trades.map(tr => `
+                <tr class="border-b border-slate-800/50 hover:bg-slate-800/20 transition">
+                    <td class="py-4 font-bold text-xs">${tr.agent}</td>
+                    <td class="py-4 text-xs font-mono text-slate-400">${tr.symbol}</td>
+                    <td class="py-4">
+                        <span class="text-[10px] font-bold px-2 py-1 rounded ${tr.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${tr.side}</span>
+                    </td>
+                    <td class="py-4 text-right font-bold text-xs ${tr.net_profit_loss >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${tr.net_profit_loss >= 0 ? '+' : ''}$${Math.abs(tr.net_profit_loss).toFixed(2)}
+                    </td>
+                    <td class="py-4 text-right font-mono text-xs text-slate-300">$${tr.balance_after.toLocaleString()}</td>
+                </tr>
+            `).join('');
+
+            const total = agents.reduce((sum, a) => sum + a.balance, 0);
+            document.getElementById('totalCapital').innerText = "$" + total.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('activeAgents').innerText = agents.length;
+        }
+
+        async function scanProject() {
+            const sym = document.getElementById('scanSymbol').value.toUpperCase();
+            if(!sym) return;
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true; btn.innerText = "Analyzing...";
+
+            try {
+                const res = await fetch('/scan-project', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({symbol: sym})
+                });
+                const data = await res.json();
+
+                const resBox = document.getElementById('scanResult');
+                resBox.classList.remove('hidden');
+                document.getElementById('scoreVal').innerText = data.confidence.toFixed(1) + "%";
+                document.getElementById('scoreBar').style.width = data.confidence + "%";
+
+                const sideText = document.getElementById('scanSide');
+                sideText.innerText = data.side === 'NONE' ? 'NEUTRAL / WAIT' : `RECOMMENDED: ${data.side}`;
+                sideText.className = "text-center font-bold text-sm uppercase pt-2 " + (data.side === 'LONG' ? 'text-emerald-400' : data.side === 'SHORT' ? 'text-rose-400' : 'text-slate-400');
+
+            } catch(e) { console.error(e); }
+            btn.disabled = false; btn.innerText = i18n[currentLang].scanBtn;
+        }
+
+        setInterval(fetchData, 10000);
+        updateUIStrings();
     </script>
 </body>
 </html>

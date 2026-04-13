@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ajan Analizi - CryptoSafe AI</title>
+    <title>Agent Analysis - CryptoSafe AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -14,7 +14,6 @@
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        #chart-legend { position: absolute; top: 12px; right: 12px; z-index: 10; pointer-events: none; text-align: right; }
     </style>
 </head>
 <body>
@@ -23,69 +22,60 @@
             <div class="bg-slate-800 p-2 rounded-lg group-hover:bg-blue-600 transition">
                 <i class="fas fa-arrow-left text-white"></i>
             </div>
-            <span class="font-bold text-xl">Panel'e Dön</span>
+            <span class="font-bold text-xl" id="t-back">Back to Panel</span>
         </a>
-        <div id="agentBadge" class="px-4 py-2 rounded-full glass text-blue-400 font-mono text-sm uppercase tracking-tighter">YÜKLENİYOR...</div>
+        <div id="agentBadge" class="px-4 py-2 rounded-full glass text-blue-400 font-mono text-sm uppercase tracking-tighter">LOADING...</div>
     </nav>
 
     <main class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2 space-y-8">
             <div class="glass rounded-3xl p-6 relative">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold" id="agentNameDisplay">Ajan Analizi</h2>
+                    <h2 class="text-2xl font-bold" id="agentNameDisplay">Agent Analysis</h2>
                     <div class="flex space-x-2">
-                        <span id="posBadge" class="hidden px-3 py-1 rounded-md bg-blue-500/10 text-blue-500 text-xs font-bold uppercase tracking-widest">İŞLEMDE</span>
-                        <span class="px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-bold" id="agentStatus">AKTİF</span>
+                        <span id="posBadge" class="hidden px-3 py-1 rounded-md bg-blue-500/10 text-blue-500 text-xs font-bold uppercase tracking-widest">TRADING</span>
+                        <span class="px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-bold" id="t-active">ACTIVE</span>
                     </div>
                 </div>
-                <div id="chartContainer" style="width: 100%; height: 500px;" class="rounded-2xl overflow-hidden bg-slate-950 relative">
-                    <div id="chart-legend" class="font-mono text-[11px] space-y-0.5">
-                        <div id="legend-ohlc" class="text-slate-400">
-                            O <span class="text-white" id="l-open">0.00</span>
-                            H <span class="text-white" id="l-high">0.00</span>
-                            L <span class="text-white" id="l-low">0.00</span>
-                            C <span class="text-white" id="l-close">0.00</span>
-                        </div>
-                    </div>
-                </div>
+                <div id="chartContainer" style="width: 100%; height: 500px;" class="rounded-2xl overflow-hidden bg-slate-950"></div>
             </div>
 
             <div class="glass rounded-3xl p-8">
-                <h3 class="text-xl font-bold mb-6">Aktif Pozisyon / Son Strateji</h3>
+                <h3 class="text-xl font-bold mb-6" id="t-active-title">Active Position / Last Strategy</h3>
                 <div id="activePosCard" class="p-6 bg-slate-950/50 rounded-2xl border border-slate-800 hidden mb-6">
                     <div class="grid grid-cols-4 gap-4 text-center">
-                        <div><p class="text-[10px] text-slate-500 uppercase">Giriş</p><p id="posEntry" class="font-bold">--</p></div>
-                        <div><p class="text-[10px] text-slate-500 uppercase">Yön</p><p id="posSide" class="font-bold text-blue-400">--</p></div>
-                        <div><p class="text-[10px] text-slate-500 uppercase">Kaldıraç</p><p id="posLev" class="font-bold text-yellow-500">10x</p></div>
-                        <div><p class="text-[10px] text-slate-500 uppercase">Hedef (TP)</p><p id="posTP" class="font-bold text-emerald-400">--</p></div>
+                        <div><p class="text-[10px] text-slate-500 uppercase" id="t-entry">ENTRY</p><p id="posEntry" class="font-bold">--</p></div>
+                        <div><p class="text-[10px] text-slate-500 uppercase" id="t-side">SIDE</p><p id="posSide" class="font-bold text-blue-400">--</p></div>
+                        <div><p class="text-[10px] text-slate-500 uppercase" id="t-lev">LEVERAGE</p><p id="posLev" class="font-bold text-yellow-500">10x</p></div>
+                        <div><p class="text-[10px] text-slate-500 uppercase">TP</p><p id="posTP" class="font-bold text-emerald-400">--</p></div>
                     </div>
                 </div>
-                <div id="lastReasoning" class="p-6 bg-slate-950/50 rounded-2xl border border-slate-800 italic text-slate-300">Strateji analizi yapılıyor...</div>
+                <div id="lastReasoning" class="p-6 bg-slate-950/50 rounded-2xl border border-slate-800 italic text-slate-300">Strategy analysis in progress...</div>
             </div>
         </div>
 
         <div class="space-y-8">
             <div class="glass rounded-3xl p-8 bg-gradient-to-br from-blue-600/10 to-transparent">
-                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-6">Performans Karnesi</h3>
+                <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-6" id="t-perf">Performance Scorecard</h3>
                 <div class="space-y-6">
                     <div>
-                        <p class="text-slate-500 text-xs mb-1">Güncel Bakiye</p>
+                        <p class="text-slate-500 text-xs mb-1" id="t-bal">Current Balance</p>
                         <p class="text-4xl font-bold" id="balanceDisplay">$1,000.00</p>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
-                            <p class="text-slate-500 text-[10px] uppercase">Toplam İşlem</p>
+                            <p class="text-slate-500 text-[10px] uppercase" id="t-total-trades">TOTAL TRADES</p>
                             <p class="text-xl font-bold" id="tradeCount">0</p>
                         </div>
                         <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
-                            <p class="text-slate-500 text-[10px] uppercase">Başarı Oranı</p>
+                            <p class="text-slate-500 text-[10px] uppercase" id="t-win-rate">WIN RATE</p>
                             <p class="text-xl font-bold text-emerald-400" id="winRate">0%</p>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="glass rounded-3xl p-8">
-                <h3 class="text-lg font-bold mb-6">Net İşlem Geçmişi (Komisyon Dahil)</h3>
+                <h3 class="text-lg font-bold mb-6" id="t-history">Transaction History (Incl. Fees)</h3>
                 <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar min-h-[100px]" id="tradeHistory"></div>
             </div>
         </div>
@@ -98,38 +88,17 @@
 
         function initChart() {
             const container = document.getElementById('chartContainer');
-            if (!container) return;
             chart = LightweightCharts.createChart(container, {
                 width: container.clientWidth,
                 height: 500,
                 layout: { background: { type: LightweightCharts.ColorType.Solid, color: '#0f172a' }, textColor: '#94a3b8' },
                 grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
-                timeScale: { timeVisible: true, secondsVisible: true },
-                localization: { locale: 'tr-TR' }
+                timeScale: { timeVisible: true, secondsVisible: true }
             });
-
             candleSeries = chart.addCandlestickSeries({
                 upColor: '#10b981', downColor: '#ef4444', borderVisible: false,
-                wickUpColor: '#10b981', wickDownColor: '#ef4444',
-                priceFormat: {
-                    type: 'price',
-                    precision: 6,
-                    minMove: 0.000001,
-                },
+                wickUpColor: '#10b981', wickDownColor: '#ef4444'
             });
-
-            chart.subscribeCrosshairMove(param => {
-                if (param.time) {
-                    const data = param.seriesData.get(candleSeries);
-                    if (data) {
-                        document.getElementById('l-open').innerText = data.open.toFixed(6);
-                        document.getElementById('l-high').innerText = data.high.toFixed(6);
-                        document.getElementById('l-low').innerText = data.low.toFixed(6);
-                        document.getElementById('l-close').innerText = data.close.toFixed(6);
-                    }
-                }
-            });
-
             window.addEventListener('resize', () => { chart.applyOptions({ width: container.clientWidth }); });
         }
 
@@ -152,34 +121,34 @@
                     if (agent.active_position) {
                         document.getElementById('posBadge').classList.remove('hidden');
                         document.getElementById('activePosCard').classList.remove('hidden');
-                        document.getElementById('posEntry').innerText = agent.active_position.entry;
+                        document.getElementById('posEntry').innerText = agent.active_position.entry.toFixed(6);
                         document.getElementById('posSide').innerText = agent.active_position.side;
                         document.getElementById('posLev').innerText = agent.active_position.leverage + "x";
-                        document.getElementById('posTP').innerText = agent.active_position.tp;
+                        document.getElementById('posTP').innerText = agent.active_position.tp.toFixed(6);
                     } else {
                         document.getElementById('posBadge').classList.add('hidden');
                         document.getElementById('activePosCard').classList.add('hidden');
                     }
 
                     if (agent.last_trade) {
-                        document.getElementById('lastReasoning').innerText = `Son Kapatılan İşlem: ${agent.last_trade.reasoning}`;
+                        document.getElementById('lastReasoning').innerText = `Last Trade Result: ${agent.last_trade.reasoning}`;
                     }
 
                     const wins = trades.filter(t => t.success).length;
                     document.getElementById('winRate').innerText = (trades.length > 0 ? (wins/trades.length*100).toFixed(1) : 0) + "%";
 
                     document.getElementById('tradeHistory').innerHTML = trades.map(t => `
-                        <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/50 text-xs hover:bg-slate-900/60 transition space-y-2">
+                        <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/50 text-xs space-y-2">
                             <div class="flex justify-between font-bold">
                                 <span class="${t.side === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${t.side} | ${t.symbol}</span>
                                 <span class="${t.success ? 'text-emerald-500' : 'text-rose-500'}">${t.profit_pct >= 0 ? '+' : ''}${t.profit_pct.toFixed(2)}%</span>
                             </div>
                             <div class="grid grid-cols-2 text-slate-500">
-                                <span>Giriş: ${t.entry_price.toFixed(6)}</span>
-                                <span class="text-right">Çıkış: ${t.exit_price.toFixed(6)}</span>
+                                <span>In: ${t.entry_price.toFixed(6)}</span>
+                                <span class="text-right">Out: ${t.exit_price.toFixed(6)}</span>
                             </div>
                             <div class="flex justify-between items-center pt-1 border-t border-slate-800/50">
-                                <span class="text-[10px] text-slate-600">Komisyon: ${t.fees.toFixed(4)}$</span>
+                                <span class="text-[10px] text-slate-600">Fee: $${t.fees.toFixed(2)}</span>
                                 <span class="font-bold ${t.success ? 'text-emerald-400' : 'text-rose-400'}">Net: $${t.net_profit_loss.toFixed(2)}</span>
                             </div>
                         </div>

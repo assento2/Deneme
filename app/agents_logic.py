@@ -1,43 +1,68 @@
 import pandas as pd
 import numpy as np
 from xgboost import XGBClassifier
-from sklearn.ensemble import RandomForestClassifier
 from typing import List, Dict, Optional
 from datetime import datetime
+import logging
+import os
+import json
+
+logger = logging.getLogger(__name__)
 
 class Position:
-    def __init__(self, side: str, entry_price: float, leverage: int = 10):
+    def __init__(self, side: str, entry_price: float, leverage: int = 10, confidence: float = 0):
         self.side = side
         self.entry_price = entry_price
         self.leverage = leverage
-        self.entry_time = datetime.now()
+        self.confidence = confidence
+        self.entry_time = datetime.now().isoformat()
         self.fee_rate = 0.0006  # 0.06% Taker Fee
 
-    def calculate_pnl(self, current_price: float) -> float:
-        """Returns NET profit/loss percentage including fees."""
-        # Entry Fee + Exit Fee
-        total_fees = self.fee_rate * 2 * self.leverage
+        # Calculate SL/TP prices for UI
+        tp_dist = 0.015 # 1.5% move * 10x = 15% PnL
+        sl_dist = 0.005 # 0.5% move * 10x = 5% PnL
 
+        if side == "LONG":
+            self.tp_price = entry_price * (1 + tp_dist)
+            self.sl_price = entry_price * (1 - sl_dist)
+        else:
+            self.tp_price = entry_price * (1 - tp_dist)
+            self.sl_price = entry_price * (1 + sl_dist)
+
+    def calculate_pnl_pct(self, current_price: float) -> float:
+        """Returns NET profit/loss percentage including fees."""
+        total_fees = self.fee_rate * 2 * self.leverage
         if self.side == "LONG":
             raw_pnl = (current_price - self.entry_price) / self.entry_price
         else:
             raw_pnl = (self.entry_price - current_price) / self.entry_price
-
         return (raw_pnl * self.leverage) - total_fees
 
-class IntelligenceAgent:
-    """An ensemble machine learning agent that predicts market direction."""
+    def to_dict(self):
+        return {
+            "side": self.side,
+            "entry": self.entry_price,
+            "tp": round(self.tp_price, 6),
+            "sl": round(self.sl_price, 6),
+            "leverage": self.leverage,
+            "confidence": round(self.confidence, 1),
+            "entry_time": self.entry_time
+        }
 
-    def __init__(self):
-        # We use a weighted ensemble of XGBoost and Random Forest
-        # For a 24/7 automated system, we pre-train or use high-confidence indicators
-        # Here we simulate the ensemble decision logic based on technical features
-        pass
+class IntelligenceAgent:
+    """A self-developing ML agent using XGBoost."""
+
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+        self.model = XGBClassifier(n_estimators=100, max_depth=3, learning_rate=0.1)
+        self.is_trained = False
+        self.min_train_size = 200
 
     def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        # EMA
-        df['ema_short'] = df['close'].ewm(span=9).mean()
-        df['ema_long'] = df['close'].ewm(span=21).mean()
+        df = df.copy()
+        # Basic Technical Indicators
+        df['ema_9'] = df['close'].ewm(span=9).mean()
+        df['ema_21'] = df['close'].ewm(span=21).mean()
 
         # RSI
         delta = df['close'].diff()
@@ -46,111 +71,210 @@ class IntelligenceAgent:
         rs = gain / loss
         df['rsi'] = 100 - (100 / (1 + rs))
 
-        # ATR (Volatility)
-        high_low = df['high'] - df['low']
-        high_close = np.abs(df['high'] - df['close'].shift())
-        low_close = np.abs(df['low'] - df['close'].shift())
-        ranges = pd.concat([high_low, high_close, low_close], axis=1)
-        df['atr'] = ranges.max(axis=1).rolling(window=14).mean()
+        # Volatility
+        df['volatility'] = df['close'].rolling(window=14).std() / df['close'].rolling(window=14).mean()
 
-        return df
+        # Momentum
+        df['mom'] = df['close'].pct_change(periods=5)
+
+        return df.dropna()
+
+    def _prepare_features(self, df: pd.DataFrame):
+        features = df[['rsi', 'volatility', 'mom']].copy()
+        features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
+        return features
+
+    def train(self, df: pd.DataFrame):
+        if len(df) < self.min_train_size: return
+        df_ind = self.calculate_indicators(df)
+        if len(df_ind) < 50: return
+        features = self._prepare_features(df_ind)
+        target = (df_ind['close'].shift(-5) > df_ind['close']).astype(int)
+        X = features.iloc[:-5]
+        y = target.iloc[:-5]
+        try:
+            self.model.fit(X, y)
+            self.is_trained = True
+        except: pass
 
     def predict(self, df: pd.DataFrame) -> Dict:
-        if len(df) < 30:
-            return {"side": "NONE", "confidence": 0}
+        if len(df) < 30: return {"side": "NONE", "confidence": 0, "mode": "learning"}
+        df_ind = self.calculate_indicators(df)
+        if df_ind.empty: return {"side": "NONE", "confidence": 0, "mode": "learning"}
+        last_row = df_ind.iloc[-1:]
 
-        df = self.calculate_indicators(df)
-        last_row = df.iloc[-1]
+        if not self.is_trained:
+            rsi = last_row['rsi'].values[0]
+            ema_diff = (last_row['ema_9'].values[0] - last_row['ema_21'].values[0])
+            side = "NONE"
+            if rsi < 35 and ema_diff > 0: side = "LONG"
+            elif rsi > 65 and ema_diff < 0: side = "SHORT"
+            return {"side": side, "confidence": 50.0, "mode": "learning"}
 
-        # ML Feature Logic
-        # 1. Trend Score (EMA crossover)
-        trend_score = 1.0 if last_row['ema_short'] > last_row['ema_long'] else -1.0
-
-        # 2. Momentum Score (RSI)
-        mom_score = 0
-        if last_row['rsi'] > 60: mom_score = 1
-        elif last_row['rsi'] < 40: mom_score = -1
-
-        # 3. Volatility Filter (ATR)
-        # Avoid flat markets
-        vol_filter = last_row['atr'] > (df['atr'].mean() * 0.5)
-
-        # Ensemble Weighted Confidence
-        # Higher score = more models agree
-        total_score = (trend_score * 0.6) + (mom_score * 0.4)
-
-        confidence = abs(total_score) * 100
-
+        X_test = self._prepare_features(last_row)
+        prob = self.model.predict_proba(X_test)[0][1]
         side = "NONE"
-        if vol_filter:
-            if total_score > 0.4: side = "LONG"
-            elif total_score < -0.4: side = "SHORT"
-
-        return {
-            "side": side,
-            "confidence": round(float(confidence), 2),
-            "features": {
-                "rsi": round(float(last_row['rsi']), 2),
-                "trend": "UP" if trend_score > 0 else "DOWN"
-            }
-        }
+        confidence = 0
+        if prob > 0.65:
+            side = "LONG"
+            confidence = prob * 100
+        elif prob < 0.35:
+            side = "SHORT"
+            confidence = (1 - prob) * 100
+        return {"side": side, "confidence": round(float(confidence), 2), "mode": "ml"}
 
 class TradingAgent:
-    def __init__(self, name: str, symbol: str, balance: float = 1000.0):
+    def __init__(self, name: str, symbol: str, balance: float = 1000.0, strategy: str = "ML Default"):
         self.name = name
         self.symbol = symbol
         self.balance = balance
-        self.intelligence = IntelligenceAgent()
+        self.strategy_name = strategy
+        self.intelligence = IntelligenceAgent(name)
         self.active_position: Optional[Position] = None
-        self.trade_history = []
+        self.trades = []
         self.leverage = 10
 
     def tick(self, df: pd.DataFrame):
+        if len(df) < 2: return
+        if not self.intelligence.is_trained and len(df) >= self.intelligence.min_train_size:
+            self.intelligence.train(df)
+
         prediction = self.intelligence.predict(df)
-        current_price = df.iloc[-1]['close']
+        last_candle = df.iloc[-1]
+        current_price = last_candle['close']
 
         if self.active_position:
-            # Check for exit signals or SL/TP (simulated)
-            pnl_pct = self.active_position.calculate_pnl(current_price)
-
-            # Simple exit logic: trend reversal or TP/SL
             should_exit = False
-            if self.active_position.side == "LONG" and prediction['side'] == "SHORT": should_exit = True
-            if self.active_position.side == "SHORT" and prediction['side'] == "LONG": should_exit = True
-            if pnl_pct > 0.15 or pnl_pct < -0.05: should_exit = True
+            exit_reason = ""
+            exit_price = current_price
+
+            pnl_high = self.active_position.calculate_pnl_pct(last_candle['high'])
+            pnl_low = self.active_position.calculate_pnl_pct(last_candle['low'])
+
+            if self.active_position.side == "LONG":
+                if pnl_high >= 0.15: # TP
+                    should_exit = True; exit_reason = "Take Profit"; exit_price = self.active_position.tp_price
+                elif pnl_low <= -0.05: # SL
+                    should_exit = True; exit_reason = "Stop Loss"; exit_price = self.active_position.sl_price
+                elif prediction['side'] == "SHORT":
+                    should_exit = True; exit_reason = "Signal Reversal"
+            else:
+                if pnl_low >= 0.15: # TP for short (price down)
+                    should_exit = True; exit_reason = "Take Profit"; exit_price = self.active_position.tp_price
+                elif pnl_high <= -0.05: # SL for short (price up)
+                    should_exit = True; exit_reason = "Stop Loss"; exit_price = self.active_position.sl_price
+                elif prediction['side'] == "LONG":
+                    should_exit = True; exit_reason = "Signal Reversal"
 
             if should_exit:
-                profit_loss = self.balance * pnl_pct
-                self.balance += profit_loss
-                self.trade_history.append({
-                    "symbol": self.symbol,
-                    "side": self.active_position.side,
-                    "entry": self.active_position.entry_price,
-                    "exit": current_price,
-                    "profit_loss": round(profit_loss, 2),
-                    "balance_after": round(self.balance, 2),
-                    "timestamp": datetime.now().isoformat()
-                })
-                exit_data = {
-                    "agent": self.name,
-                    "symbol": self.symbol,
-                    "side": self.active_position.side,
-                    "profit_loss": round(profit_loss, 2),
-                    "balance_after": round(self.balance, 2)
-                }
-                self.active_position = None
-                return "EXIT", exit_data
+                pnl_pct = self.active_position.calculate_pnl_pct(exit_price)
+                net_profit = self.balance * pnl_pct
+                fees = self.balance * (self.active_position.fee_rate * 2 * self.leverage)
 
+                self.balance += net_profit
+                trade_record = {
+                    "symbol": self.symbol,
+                    "side": self.active_position.side,
+                    "entry_price": round(self.active_position.entry_price, 6),
+                    "exit_price": round(exit_price, 6),
+                    "net_profit_loss": round(net_profit, 2),
+                    "profit_pct": round(pnl_pct * 100, 2),
+                    "fees": round(fees, 2),
+                    "balance_after": round(self.balance, 2),
+                    "reasoning": exit_reason,
+                    "success": pnl_pct > 0,
+                    "timestamp": datetime.now().isoformat()
+                }
+                self.trades.append(trade_record)
+                self.active_position = None
+                return trade_record # Signal for notification
         else:
-            # Enter if confidence is high
-            if prediction['side'] != "NONE" and prediction['confidence'] >= 70:
-                self.active_position = Position(prediction['side'], current_price, self.leverage)
-                entry_data = {
+            if prediction['side'] != "NONE" and prediction['confidence'] >= 65:
+                self.active_position = Position(prediction['side'], current_price, self.leverage, prediction['confidence'])
+                return {
+                    "type": "ENTRY",
                     "agent": self.name,
                     "symbol": self.symbol,
                     "side": prediction['side'],
-                    "price": current_price
+                    "price": current_price,
+                    "confidence": prediction['confidence']
                 }
-                return "ENTRY", entry_data
+        return None
 
-        return "IDLE", None
+class SimulationEngine:
+    STATE_FILE = "agent_state.json"
+
+    def __init__(self):
+        self.agents = [
+            TradingAgent("Titan-AI", "BTC_USDT", 1000.0, "Neural Momentum"),
+            TradingAgent("Oracle-Bot", "ETH_USDT", 1000.0, "XGB-Trend"),
+            TradingAgent("Nexus Alpha", "SOL_USDT", 1000.0, "Ensemble Scalp"),
+            TradingAgent("Cyber-Whale", "BNB_USDT", 1000.0, "Deep Liquidity"),
+            TradingAgent("Aegis-Trader", "XRP_USDT", 1000.0, "Risk-Adjusted ML")
+        ]
+        self.load_state()
+
+    def save_state(self):
+        state = []
+        for a in self.agents:
+            state.append({
+                "name": a.name,
+                "balance": a.balance,
+                "trades": a.trades,
+                "active_position": a.active_position.to_dict() if a.active_position else None
+            })
+        with open(self.STATE_FILE, "w") as f:
+            json.dump(state, f)
+
+    def load_state(self):
+        if not os.path.exists(self.STATE_FILE): return
+        try:
+            with open(self.STATE_FILE, "r") as f:
+                state = json.load(f)
+            for s in state:
+                agent = next((a for a in self.agents if a.name == s["name"]), None)
+                if agent:
+                    agent.balance = s["balance"]
+                    agent.trades = s["trades"]
+                    if s["active_position"]:
+                        pos = s["active_position"]
+                        agent.active_position = Position(pos["side"], pos["entry"], pos["leverage"], pos["confidence"])
+                        agent.active_position.entry_time = pos["entry_time"]
+        except Exception as e:
+            logger.error(f"Load state error: {e}")
+
+    async def step(self):
+        from app.utils.mexc_api import fetch_mexc_kline
+        notifications = []
+        for agent in self.agents:
+            try:
+                data = await fetch_mexc_kline(agent.symbol, interval="5m", limit=500)
+                if data:
+                    df = pd.DataFrame(data)
+                    result = agent.tick(df)
+                    if result:
+                        if "type" in result: # Entry
+                            notifications.append(result)
+                        else: # Exit
+                            notifications.append({"type": "EXIT", "agent": agent.name, **result})
+            except Exception as e:
+                logger.error(f"Error in {agent.name}: {e}")
+
+        if notifications:
+            self.save_state()
+        return notifications
+
+    def get_status(self):
+        return [
+            {
+                "name": a.name,
+                "symbol": a.symbol,
+                "strategy": a.strategy_name,
+                "balance": round(a.balance, 2),
+                "trade_count": len(a.trades),
+                "leverage": a.leverage,
+                "active_position": a.active_position.to_dict() if a.active_position else None,
+                "last_trade": a.trades[-1] if a.trades else None
+            }
+            for a in self.agents
+        ]

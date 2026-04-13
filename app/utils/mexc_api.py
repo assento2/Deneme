@@ -1,6 +1,7 @@
 import httpx
 import logging
 import random
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,6 @@ async def fetch_all_symbols():
             response = await client.get(url)
             data = response.json()
             if data.get("success"):
-                # Filter for USDT pairs and active ones
                 return [s["symbol"] for s in data["data"] if s["quoteCoin"] == "USDT" and s["state"] == 0]
             return ["BTC_USDT", "ETH_USDT", "SOL_USDT", "BNB_USDT"]
         except Exception as e:
@@ -33,6 +33,7 @@ async def fetch_mexc_kline(symbol="BTC_USDT", interval="Min5", limit=100):
 
     url = f"https://contract.mexc.com/api/v1/contract/kline/{symbol}"
     params = {"interval": mexc_interval}
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, params=params)
@@ -41,11 +42,17 @@ async def fetch_mexc_kline(symbol="BTC_USDT", interval="Min5", limit=100):
                 raw = data["data"]
                 times, opens, closes, highs, lows, vols = raw["time"], raw["open"], raw["close"], raw["high"], raw["low"], raw["vol"]
                 result = []
-                for i in range(max(0, len(times) - limit), len(times)):
+                # MEXC returns data in chronological order (oldest first)
+                count = len(times)
+                start_idx = max(0, count - limit)
+                for i in range(start_idx, count):
                     result.append({
-                        "time": times[i] * 1000, # Normalize to ms if needed by frontend, wait MEXC is already in seconds mostly but check
-                        "open": float(opens[i]), "close": float(closes[i]),
-                        "high": float(highs[i]), "low": float(lows[i]), "vol": float(vols[i])
+                        "time": int(times[i]), # Seconds
+                        "open": float(opens[i]),
+                        "close": float(closes[i]),
+                        "high": float(highs[i]),
+                        "low": float(lows[i]),
+                        "vol": float(vols[i])
                     })
                 return result
             return None
@@ -54,8 +61,6 @@ async def fetch_mexc_kline(symbol="BTC_USDT", interval="Min5", limit=100):
             return None
 
 async def market_scanner():
-    """Returns all available symbols to fulfill 'scan all projects' requirement."""
     all_symbols = await fetch_all_symbols()
-    # Shuffle or rank them to give different agents different opportunities
     random.shuffle(all_symbols)
     return all_symbols
