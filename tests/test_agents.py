@@ -32,5 +32,5 @@ async def test_agent_decision_logic():
 @pytest.mark.asyncio
 async def test_simulation_engine_initialization():
     engine = SimulationEngine()
-    assert len(engine.agents) == 5
+    assert len(engine.agents) == 6
     assert engine.agents[0].name == "Titan-AI"

@@ -78,10 +78,20 @@ class IntelligenceAgent:
         # Momentum
         df['mom'] = df['close'].pct_change(periods=5)
 
-        return df.dropna()
+        # FreqAI-inspired Lags for Aegis-Master
+        if "Master" in self.model_name:
+            for i in [1, 3, 5]:
+                df[f'rsi_lag_{i}'] = df['rsi'].shift(i)
+                df[f'mom_lag_{i}'] = df['mom'].shift(i)
+
+        return df.bfill().dropna()
 
     def _prepare_features(self, df: pd.DataFrame):
-        features = df[['rsi', 'volatility', 'mom']].copy()
+        base_cols = ['rsi', 'volatility', 'mom']
+        if "Master" in self.model_name:
+            base_cols += ['rsi_lag_1', 'rsi_lag_3', 'rsi_lag_5', 'mom_lag_1', 'mom_lag_3', 'mom_lag_5']
+
+        features = df[base_cols].copy()
         features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
         # Explicitly cast to float32
         features = features.astype(np.float32)
@@ -130,14 +140,14 @@ class IntelligenceAgent:
         try:
             best_est = self.model.best_estimator
             importance_dict = {}
-            feature_names = ['rsi', 'volatility', 'mom', 'ema_diff']
+            feature_names = list(self._prepare_features(pd.DataFrame(columns=['rsi','volatility','mom','ema_9','ema_21'], data=[[0,0,0,0,0]])).columns)
 
             # Attempt to get feature importance from the best model
             if hasattr(self.model.model.estimator, 'feature_importances_'):
                 importances = self.model.model.estimator.feature_importances_
                 importance_dict = {name: round(float(imp), 3) for name, imp in zip(feature_names, importances)}
             else:
-                importance_dict = {name: 0.25 for name in feature_names}
+                importance_dict = {name: 1.0/len(feature_names) for name in feature_names}
 
             top_feature = max(importance_dict, key=importance_dict.get)
 
@@ -152,7 +162,7 @@ class IntelligenceAgent:
                 "status": f"Operational (AutoML: {best_est.upper()})",
                 "focus": top_feature.upper(),
                 "importance": importance_dict,
-                "insight": insights_map.get(top_feature, f"The optimized {best_est} model is detecting deep price correlations.")
+                "insight": insights_map.get(top_feature, f"The optimized {best_est} model is detecting deep price correlations across time lags.")
             }
         except Exception as e:
             logger.error(f"Insights error: {e}")
@@ -278,7 +288,8 @@ class SimulationEngine:
             TradingAgent("Oracle-Bot", "ETH_USDT", 1000.0, "XGB-Trend"),
             TradingAgent("Nexus Alpha", "SOL_USDT", 1000.0, "Ensemble Scalp"),
             TradingAgent("Cyber-Whale", "BNB_USDT", 1000.0, "Deep Liquidity"),
-            TradingAgent("Aegis-Trader", "XRP_USDT", 1000.0, "Risk-Adjusted ML")
+            TradingAgent("Aegis-Trader", "XRP_USDT", 1000.0, "Risk-Adjusted ML"),
+            TradingAgent("Aegis-Master", "TAO_USDT", 1000.0, "FreqAI High-Lag")
         ]
         self.load_state()
 
