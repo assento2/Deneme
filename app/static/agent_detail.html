@@ -157,7 +157,8 @@
                     const kRes = await fetch('/kline?symbol=' + agent.symbol);
                     if (kRes.ok) {
                         const kData = await kRes.json();
-                        candleSeries.setData(kData.map(d => ({ time: Math.floor(d.time / 1000), open: d.open, high: d.high, low: d.low, close: d.close })));
+                        // MEXC Contract API returns time in seconds, no division needed
+                        candleSeries.setData(kData.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close })));
                     }
                 }
             } catch (e) { console.error(e); }

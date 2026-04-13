@@ -40,13 +40,13 @@ class Position:
 
     def to_dict(self):
         return {
-            "side": self.side,
-            "entry": self.entry_price,
-            "tp": round(self.tp_price, 6),
-            "sl": round(self.sl_price, 6),
-            "leverage": self.leverage,
-            "confidence": round(self.confidence, 1),
-            "entry_time": self.entry_time
+            "side": str(self.side),
+            "entry": float(self.entry_price),
+            "tp": round(float(self.tp_price), 6),
+            "sl": round(float(self.sl_price), 6),
+            "leverage": int(self.leverage),
+            "confidence": round(float(self.confidence), 1),
+            "entry_time": str(self.entry_time)
         }
 
 class IntelligenceAgent:
@@ -173,16 +173,16 @@ class TradingAgent:
 
                 self.balance += net_profit
                 trade_record = {
-                    "symbol": self.symbol,
-                    "side": self.active_position.side,
-                    "entry_price": round(self.active_position.entry_price, 6),
-                    "exit_price": round(exit_price, 6),
-                    "net_profit_loss": round(net_profit, 2),
-                    "profit_pct": round(pnl_pct * 100, 2),
-                    "fees": round(fees, 2),
-                    "balance_after": round(self.balance, 2),
-                    "reasoning": exit_reason,
-                    "success": pnl_pct > 0,
+                    "symbol": str(self.symbol),
+                    "side": str(self.active_position.side),
+                    "entry_price": round(float(self.active_position.entry_price), 6),
+                    "exit_price": round(float(exit_price), 6),
+                    "net_profit_loss": round(float(net_profit), 2),
+                    "profit_pct": round(float(pnl_pct * 100), 2),
+                    "fees": round(float(fees), 2),
+                    "balance_after": round(float(self.balance), 2),
+                    "reasoning": str(exit_reason),
+                    "success": bool(pnl_pct > 0),
                     "timestamp": datetime.now().isoformat()
                 }
                 self.trades.append(trade_record)
@@ -267,12 +267,12 @@ class SimulationEngine:
     def get_status(self):
         return [
             {
-                "name": a.name,
-                "symbol": a.symbol,
-                "strategy": a.strategy_name,
-                "balance": round(a.balance, 2),
-                "trade_count": len(a.trades),
-                "leverage": a.leverage,
+                "name": str(a.name),
+                "symbol": str(a.symbol),
+                "strategy": str(a.strategy_name),
+                "balance": round(float(a.balance), 2),
+                "trade_count": int(len(a.trades)),
+                "leverage": int(a.leverage),
                 "active_position": a.active_position.to_dict() if a.active_position else None,
                 "last_trade": a.trades[-1] if a.trades else None
             }

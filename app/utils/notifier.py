@@ -43,5 +43,6 @@ def format_notification(event: dict) -> str:
             f"📈 Parite: {event['symbol']}\n"
             f"💰 Kar/Zarar: ${event['net_profit_loss']}\n"
             f"📊 Yüzde: %{event['profit_pct']}\n"
+            f"💸 Komisyon/Fees: ${event['fees']}\n"
             f"💡 Sebep: {event['reasoning']}"
         )
