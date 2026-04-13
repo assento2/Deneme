@@ -1,9 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import joblib
-import pandas as pd
-import numpy as np
 import os
 import asyncio
 import httpx
@@ -17,16 +14,28 @@ engine = SimulationEngine()
 trade_history = []
 
 async def run_simulation():
+    # Render Keep-Alive: Self-ping every 14 minutes to prevent sleep
+    last_ping = 0
+
     while True:
         try:
+            current_time = asyncio.get_event_loop().time()
+            if current_time - last_ping > 840:
+                try:
+                    # Self-ping
+                    async with httpx.AsyncClient() as client:
+                        await client.get("http://localhost:8000/health", timeout=5)
+                    last_ping = current_time
+                except Exception: pass
+
             await engine.step()
-            # Collect all trades from all agents to populate global log
+
+            # Aggregating trade logs for global view
             all_trades = []
             for agent in engine.agents:
                 for t in agent.trades:
                     all_trades.append({"agent": agent.name, "strategy": agent.strategy_name, **t})
 
-            # Sort by timestamp descending
             all_trades.sort(key=lambda x: x["timestamp"], reverse=True)
             global trade_history
             trade_history = all_trades[:50]
@@ -34,7 +43,7 @@ async def run_simulation():
         except Exception as e:
             print(f"Simulation error: {e}")
 
-        await asyncio.sleep(60) # Scan every minute, but agents use 5m klines
+        await asyncio.sleep(60)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,9 +55,8 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
-app = FastAPI(title="CryptoSafe AI - Otonom Ajan Ağı", lifespan=lifespan)
+app = FastAPI(title="CryptoSafe AI - Command Center", lifespan=lifespan)
 
-# Models and endpoints...
 @app.get("/agents")
 async def get_agents():
     return engine.get_status()
@@ -72,55 +80,24 @@ async def get_kline(symbol: str = "BTC_USDT"):
         raise HTTPException(status_code=503, detail="Market data unavailable")
     return data
 
-# Predict logic...
-MODEL_PATH = "app/models/model.joblib"
-SCALER_PATH = "app/models/scaler.joblib"
-FEATURES_PATH = "app/models/features.joblib"
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "agents_active": len(engine.agents)}
 
-model = None
-scaler = None
-features = None
+# Simplified scan endpoint for frontend
+class ScanRequest(BaseModel):
+    symbol: str
 
-if os.path.exists(MODEL_PATH):
-    model = joblib.load(MODEL_PATH)
-    scaler = joblib.load(SCALER_PATH)
-    features = joblib.load(FEATURES_PATH)
-
-class TransactionData(BaseModel):
-    avg_min_sent: float
-    avg_min_received: float
-    time_diff: float
-    unique_received_from: int
-    min_val_received: float
-    max_val_received: float
-    avg_val_received: float
-    min_val_sent: float
-    avg_val_sent: float
-    total_transactions: int
-    total_ether_received: float
-    total_ether_balance: float
-
-@app.post("/predict")
-async def predict(data: TransactionData):
-    if model is None:
-        return {"reliability_score": 0.85, "is_fraud": False, "status": "mock_success"}
-    try:
-        input_data = pd.DataFrame([[
-            data.avg_min_sent, data.avg_min_received, data.time_diff,
-            data.unique_received_from, data.min_val_received, data.max_val_received,
-            data.avg_val_received, data.min_val_sent, data.avg_val_sent,
-            data.total_transactions, data.total_ether_received, data.total_ether_balance
-        ]], columns=features)
-        scaled_data = scaler.transform(input_data)
-        probs = model.predict_proba(scaled_data)[0]
-        reliability_score = probs[0]
-        is_fraud = bool(model.predict(scaled_data)[0])
-        return {"reliability_score": float(reliability_score), "is_fraud": is_fraud, "status": "success"}
-    except Exception as e:
-        return {"reliability_score": 0.5, "error": str(e), "status": "fallback"}
+@app.post("/scan-project")
+async def scan_project(req: ScanRequest):
+    # Simulated project analysis for frontend UI
+    import random
+    confidence = random.randint(30, 95)
+    return {"symbol": req.symbol, "confidence": confidence, "status": "success"}
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

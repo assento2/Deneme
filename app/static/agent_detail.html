@@ -85,7 +85,7 @@
                 </div>
             </div>
             <div class="glass rounded-3xl p-8">
-                <h3 class="text-lg font-bold mb-6">Detaylı İşlem Geçmişi</h3>
+                <h3 class="text-lg font-bold mb-6">Net İşlem Geçmişi (Komisyon Dahil)</h3>
                 <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar min-h-[100px]" id="tradeHistory"></div>
             </div>
         </div>
@@ -144,7 +144,7 @@
                 const agent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
 
                 if (agent) {
-                    document.getElementById('agentBadge').innerText = agent.symbol + " | 5M ANALİZ";
+                    document.getElementById('agentBadge').innerText = agent.symbol + " | REEL ANALİZ";
                     document.getElementById('agentNameDisplay').innerText = agent.name;
                     document.getElementById('balanceDisplay').innerText = "$" + agent.balance.toLocaleString(undefined, {minimumFractionDigits: 2});
                     document.getElementById('tradeCount').innerText = agent.trade_count;
@@ -162,7 +162,7 @@
                     }
 
                     if (agent.last_trade) {
-                        document.getElementById('lastReasoning').innerText = `Son İşlem: ${agent.last_trade.reasoning}`;
+                        document.getElementById('lastReasoning').innerText = `Son Kapatılan İşlem: ${agent.last_trade.reasoning}`;
                     }
 
                     const wins = trades.filter(t => t.success).length;
@@ -172,15 +172,15 @@
                         <div class="p-4 rounded-xl bg-slate-950/40 border border-slate-800/50 text-xs hover:bg-slate-900/60 transition space-y-2">
                             <div class="flex justify-between font-bold">
                                 <span class="${t.side === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${t.side} | ${t.symbol}</span>
-                                <span class="${t.profit_loss >= 0 ? 'text-emerald-500' : 'text-rose-500'}">${t.profit_pct >= 0 ? '+' : ''}${t.profit_pct.toFixed(2)}%</span>
+                                <span class="${t.success ? 'text-emerald-500' : 'text-rose-500'}">${t.profit_pct >= 0 ? '+' : ''}${t.profit_pct.toFixed(2)}%</span>
                             </div>
                             <div class="grid grid-cols-2 text-slate-500">
                                 <span>Giriş: ${t.entry_price.toFixed(6)}</span>
                                 <span class="text-right">Çıkış: ${t.exit_price.toFixed(6)}</span>
                             </div>
                             <div class="flex justify-between items-center pt-1 border-t border-slate-800/50">
-                                <span class="text-[10px] text-slate-600 font-mono">${new Date(t.timestamp).toLocaleString('tr-TR')}</span>
-                                <span class="font-bold text-slate-300">$${t.profit_loss.toFixed(2)}</span>
+                                <span class="text-[10px] text-slate-600">Komisyon: ${t.fees.toFixed(4)}$</span>
+                                <span class="font-bold ${t.success ? 'text-emerald-400' : 'text-rose-400'}">Net: $${t.net_profit_loss.toFixed(2)}</span>
                             </div>
                         </div>
                     `).join('');
