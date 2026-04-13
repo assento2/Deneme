@@ -83,10 +83,8 @@ class IntelligenceAgent:
     def _prepare_features(self, df: pd.DataFrame):
         features = df[['rsi', 'volatility', 'mom']].copy()
         features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
-        # Explicitly cast to float32 to avoid StringDtype issues in some pandas versions with FLAML
+        # Explicitly cast to float32
         features = features.astype(np.float32)
-        # Fix for Pandas 3.0+ where column names might be StringDtype, which crashes FLAML/NumPy issubdtype
-        features.columns = features.columns.astype(object)
         return features
 
     def train(self, df: pd.DataFrame):
@@ -99,14 +97,23 @@ class IntelligenceAgent:
         y = target.iloc[:-5]
         try:
             settings = {
-                "time_budget": 10,  # Increased for better accuracy
+                "time_budget": 10,
                 "metric": 'accuracy',
                 "task": 'classification',
                 "log_file_name": "",
                 "verbose": 0
             }
-            # Use DataFrame directly now that column dtypes are fixed to 'object'
-            self.model.fit(X_train=X, y_train=y, **settings)
+            # To bypass pandas StringDtype issues in FLAML/Numpy,
+            # we re-construct a "clean" DataFrame with object-type columns.
+            # This satisfies both the need for feature names and the need to avoid StringDtype.
+            X_clean = pd.DataFrame(X.values, columns=list(X.columns), dtype=np.float32)
+            X_clean.columns = X_clean.columns.astype(object)
+
+            self.model.fit(
+                X_train=X_clean,
+                y_train=y.values,
+                **settings
+            )
             self.is_trained = True
         except Exception as e:
             logger.error(f"AutoML Training Error for {self.model_name}: {e}")
@@ -168,9 +175,11 @@ class IntelligenceAgent:
         X_test = self._prepare_features(last_row)
 
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning, message=".*feature names.*")
-            # Predict using DataFrame to keep feature names and avoid warnings
-            prob = self.model.predict_proba(X_test)[0][1]
+            warnings.filterwarnings("ignore", category=UserWarning)
+            # Use "clean" DataFrame approach for consistency with training
+            X_test_clean = pd.DataFrame(X_test.values, columns=list(X_test.columns), dtype=np.float32)
+            X_test_clean.columns = X_test_clean.columns.astype(object)
+            prob = self.model.predict_proba(X_test_clean)[0][1]
 
         side = "NONE"
         confidence = 0
