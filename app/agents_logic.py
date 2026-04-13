@@ -97,6 +97,40 @@ class IntelligenceAgent:
             self.is_trained = True
         except: pass
 
+    def get_ml_insights(self) -> Dict:
+        if not self.is_trained:
+            return {
+                "status": "Learning (Data Collection)",
+                "focus": "Heuristic Indicators",
+                "importance": {"RSI": 0.4, "EMA": 0.4, "Volatility": 0.2},
+                "insight": "Model is currently collecting market data patterns and using baseline indicators for orientation."
+            }
+
+        # Extract feature importance from XGBoost
+        try:
+            importances = self.model.feature_importances_
+            feature_names = ['rsi', 'volatility', 'mom', 'ema_diff']
+            importance_dict = {name: round(float(imp), 3) for name, imp in zip(feature_names, importances)}
+
+            # Find dominant feature
+            top_feature = max(importance_dict, key=importance_dict.get)
+
+            insights_map = {
+                "rsi": "Strong focus on oversold/overbought cycles to predict reversals.",
+                "volatility": "Prioritizing market stability and breakout volatility as key signal filters.",
+                "mom": "Momentum tracking is currently the primary driver for directionality prediction.",
+                "ema_diff": "Trend structural alignment (EMA crosses) is yielding the highest confidence."
+            }
+
+            return {
+                "status": "Operational (Neural Inference)",
+                "focus": top_feature.upper(),
+                "importance": importance_dict,
+                "insight": insights_map.get(top_feature, "Neural network is analyzing complex historical price correlations.")
+            }
+        except:
+            return {"status": "Error", "insight": "ML metrics unavailable."}
+
     def predict(self, df: pd.DataFrame) -> Dict:
         if len(df) < 30: return {"side": "NONE", "confidence": 0, "mode": "learning"}
         df_ind = self.calculate_indicators(df)
@@ -274,7 +308,8 @@ class SimulationEngine:
                 "trade_count": int(len(a.trades)),
                 "leverage": int(a.leverage),
                 "active_position": a.active_position.to_dict() if a.active_position else None,
-                "last_trade": a.trades[-1] if a.trades else None
+                "last_trade": a.trades[-1] if a.trades else None,
+                "ml_insights": a.intelligence.get_ml_insights()
             }
             for a in self.agents
         ]
