@@ -91,6 +91,8 @@ async def run_simulation():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initial sweep on startup
+    asyncio.create_task(perform_market_sweep())
     sim_task = asyncio.create_task(run_simulation())
     yield
     sim_task.cancel()

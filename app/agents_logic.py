@@ -6,6 +6,7 @@ from datetime import datetime
 import logging
 import os
 import json
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,10 @@ class IntelligenceAgent:
         features = df[['rsi', 'volatility', 'mom']].copy()
         features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
         # Explicitly cast to float32 to avoid StringDtype issues in some pandas versions with FLAML
-        return features.astype(np.float32)
+        features = features.astype(np.float32)
+        # Fix for Pandas 3.0+ where column names might be StringDtype, which crashes FLAML/NumPy issubdtype
+        features.columns = features.columns.astype(object)
+        return features
 
     def train(self, df: pd.DataFrame):
         if len(df) < self.min_train_size: return
@@ -101,6 +105,7 @@ class IntelligenceAgent:
                 "log_file_name": "",
                 "verbose": 0
             }
+            # Use DataFrame directly now that column dtypes are fixed to 'object'
             self.model.fit(X_train=X, y_train=y, **settings)
             self.is_trained = True
         except Exception as e:
@@ -161,7 +166,12 @@ class IntelligenceAgent:
             return {"side": side, "confidence": 50.0, "mode": "learning"}
 
         X_test = self._prepare_features(last_row)
-        prob = self.model.predict_proba(X_test)[0][1]
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, message=".*feature names.*")
+            # Predict using DataFrame to keep feature names and avoid warnings
+            prob = self.model.predict_proba(X_test)[0][1]
+
         side = "NONE"
         confidence = 0
         if prob > 0.65:
