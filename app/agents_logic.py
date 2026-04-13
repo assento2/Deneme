@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from xgboost import XGBClassifier
+from flaml import AutoML
 from typing import List, Dict, Optional
 from datetime import datetime
 import logging
@@ -54,7 +54,7 @@ class IntelligenceAgent:
 
     def __init__(self, model_name: str):
         self.model_name = model_name
-        self.model = XGBClassifier(n_estimators=100, max_depth=3, learning_rate=0.1)
+        self.model = AutoML()
         self.is_trained = False
         self.min_train_size = 200
 
@@ -90,29 +90,42 @@ class IntelligenceAgent:
         if len(df_ind) < 50: return
         features = self._prepare_features(df_ind)
         target = (df_ind['close'].shift(-5) > df_ind['close']).astype(int)
-        X = features.iloc[:-5]
-        y = target.iloc[:-5]
+        X = features.iloc[:-5].values
+        y = target.iloc[:-5].values
         try:
-            self.model.fit(X, y)
+            settings = {
+                "time_budget": 5,  # 5 seconds per agent for AutoML
+                "metric": 'accuracy',
+                "task": 'classification',
+                "log_file_name": "",
+                "verbose": 0
+            }
+            self.model.fit(X_train=X, y_train=y, **settings)
             self.is_trained = True
-        except: pass
+        except Exception as e:
+            logger.error(f"AutoML Training Error for {self.model_name}: {e}")
 
     def get_ml_insights(self) -> Dict:
         if not self.is_trained:
             return {
-                "status": "Learning (Data Collection)",
+                "status": "Learning (AutoML Warmup)",
                 "focus": "Heuristic Indicators",
                 "importance": {"RSI": 0.4, "EMA": 0.4, "Volatility": 0.2},
-                "insight": "Model is currently collecting market data patterns and using baseline indicators for orientation."
+                "insight": "AutoML is currently evaluating the best model architecture for this symbol."
             }
 
-        # Extract feature importance from XGBoost
         try:
-            importances = self.model.feature_importances_
+            best_est = self.model.best_estimator
+            importance_dict = {}
             feature_names = ['rsi', 'volatility', 'mom', 'ema_diff']
-            importance_dict = {name: round(float(imp), 3) for name, imp in zip(feature_names, importances)}
 
-            # Find dominant feature
+            # Attempt to get feature importance from the best model
+            if hasattr(self.model.model.estimator, 'feature_importances_'):
+                importances = self.model.model.estimator.feature_importances_
+                importance_dict = {name: round(float(imp), 3) for name, imp in zip(feature_names, importances)}
+            else:
+                importance_dict = {name: 0.25 for name in feature_names}
+
             top_feature = max(importance_dict, key=importance_dict.get)
 
             insights_map = {
@@ -123,13 +136,14 @@ class IntelligenceAgent:
             }
 
             return {
-                "status": "Operational (Neural Inference)",
+                "status": f"Operational (AutoML: {best_est.upper()})",
                 "focus": top_feature.upper(),
                 "importance": importance_dict,
-                "insight": insights_map.get(top_feature, "Neural network is analyzing complex historical price correlations.")
+                "insight": insights_map.get(top_feature, f"The optimized {best_est} model is detecting deep price correlations.")
             }
-        except:
-            return {"status": "Error", "insight": "ML metrics unavailable."}
+        except Exception as e:
+            logger.error(f"Insights error: {e}")
+            return {"status": "Error", "insight": "AutoML metrics temporarily unavailable."}
 
     def predict(self, df: pd.DataFrame) -> Dict:
         if len(df) < 30: return {"side": "NONE", "confidence": 0, "mode": "learning"}
@@ -145,7 +159,7 @@ class IntelligenceAgent:
             elif rsi > 65 and ema_diff < 0: side = "SHORT"
             return {"side": side, "confidence": 50.0, "mode": "learning"}
 
-        X_test = self._prepare_features(last_row)
+        X_test = self._prepare_features(last_row).values
         prob = self.model.predict_proba(X_test)[0][1]
         side = "NONE"
         confidence = 0

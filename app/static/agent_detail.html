@@ -25,9 +25,12 @@
             <div class="bg-slate-800 p-2 rounded-lg group-hover:bg-blue-600 transition">
                 <i class="fas fa-arrow-left text-white"></i>
             </div>
-            <span class="font-bold text-xl">Back to Command Center</span>
+            <span class="font-bold text-xl" id="t-back">Back to Command Center</span>
         </a>
-        <div id="agentBadge" class="px-4 py-2 rounded-full glass text-blue-400 font-mono text-sm uppercase tracking-tighter">AGENT SYMBOL</div>
+        <div class="flex items-center space-x-4">
+            <button onclick="toggleLang()" class="px-4 py-2 rounded-xl glass hover:bg-slate-800 transition text-sm font-bold" id="langBtn">TR</button>
+            <div id="agentBadge" class="px-4 py-2 rounded-full glass text-blue-400 font-mono text-sm uppercase tracking-tighter">AGENT SYMBOL</div>
+        </div>
     </nav>
 
     <main class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -48,7 +51,14 @@
                         </div>
                     </div>
                 </div>
-                <div id="chartContainer" style="width: 100%; height: 500px;" class="rounded-2xl overflow-hidden bg-slate-950/50 border border-slate-800"></div>
+                <div id="chartContainer" style="width: 100%; height: 500px;" class="rounded-2xl overflow-hidden bg-slate-950/50 border border-slate-800 relative">
+                    <div id="ohlcLegend" class="absolute top-4 left-4 z-10 font-mono text-[10px] space-x-3 bg-slate-950/80 p-2 rounded-lg border border-slate-800 hidden">
+                        <span class="text-slate-500">O: <span id="legO" class="text-white"></span></span>
+                        <span class="text-slate-500">H: <span id="legH" class="text-white"></span></span>
+                        <span class="text-slate-500">L: <span id="legL" class="text-white"></span></span>
+                        <span class="text-slate-500">C: <span id="legC" class="text-white"></span></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Premium AI Analyst Panel -->
@@ -62,8 +72,8 @@
                         <i class="fas fa-user-tie text-blue-500 text-xl"></i>
                     </div>
                     <div>
-                        <h3 class="text-xl font-bold">Premium AI Analyst Panel</h3>
-                        <p class="text-slate-500 text-xs uppercase tracking-widest">Real-time Machine Learning Insights</p>
+                        <h3 class="text-xl font-bold" id="t-panel-title">Premium AI Analyst Panel</h3>
+                        <p class="text-slate-500 text-xs uppercase tracking-widest" id="t-panel-sub">Real-time Machine Learning Insights</p>
                     </div>
                 </div>
 
@@ -71,14 +81,14 @@
                     <!-- Model Status -->
                     <div class="space-y-6">
                         <div>
-                            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Training Status</p>
+                            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2" id="t-train-status">Training Status</p>
                             <div class="flex items-center space-x-3">
                                 <span id="mlStatus" class="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-sm font-bold">OPERATIONAL</span>
                                 <span class="text-xs text-slate-500" id="mlModeDesc">Mode: Neural Inference</span>
                             </div>
                         </div>
                         <div>
-                            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Primary Market Focus</p>
+                            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2" id="t-market-focus">Primary Market Focus</p>
                             <h4 class="text-2xl font-bold text-white" id="mlFocus">MOMENTUM</h4>
                         </div>
                         <div class="p-5 bg-slate-950/50 rounded-2xl border border-slate-800 italic text-slate-300 text-sm leading-relaxed" id="mlInsight">
@@ -88,7 +98,7 @@
 
                     <!-- Feature Importance Chart -->
                     <div>
-                        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4">Neural Weights (Feature Importance)</p>
+                        <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-4" id="t-neural-weights">Neural Weights (Feature Importance)</p>
                         <div id="featureImportanceList" class="space-y-4">
                             <!-- JS populated -->
                         </div>
@@ -101,19 +111,19 @@
         <div class="space-y-8">
             <!-- Performance Section -->
             <div class="glass rounded-[32px] p-8 bg-gradient-to-br from-blue-600/10 to-transparent">
-                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6">Performance Scorecard</h3>
+                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6" id="t-scorecard">Performance Scorecard</h3>
                 <div class="space-y-6">
                     <div>
-                        <p class="text-slate-500 text-xs mb-1">Current Balance</p>
+                        <p class="text-slate-500 text-xs mb-1" id="t-cur-bal">Current Balance</p>
                         <p class="text-4xl font-bold tracking-tighter" id="balanceDisplay">$1,000.00</p>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
-                            <p class="text-slate-500 text-[10px] uppercase">Trades</p>
+                            <p class="text-slate-500 text-[10px] uppercase" id="t-trades">Trades</p>
                             <p class="text-xl font-bold" id="tradeCount">0</p>
                         </div>
                         <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
-                            <p class="text-slate-500 text-[10px] uppercase">Win Rate</p>
+                            <p class="text-slate-500 text-[10px] uppercase" id="t-win-rate">Win Rate</p>
                             <p class="text-xl font-bold text-emerald-400" id="winRate">0%</p>
                         </div>
                     </div>
@@ -122,27 +132,27 @@
 
             <!-- Active Position Details -->
             <div id="activePosCard" class="glass rounded-[32px] p-8 border-blue-500/20 hidden">
-                <h3 class="text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-6">Active Trade Matrix</h3>
+                <h3 class="text-blue-400 text-[10px] font-bold uppercase tracking-widest mb-6" id="t-matrix">Active Trade Matrix</h3>
                 <div class="space-y-4">
                     <div class="flex justify-between items-center">
-                        <span class="text-slate-500 text-xs uppercase">Side</span>
+                        <span class="text-slate-500 text-xs uppercase" id="t-side">Side</span>
                         <span id="posSide" class="font-bold text-sm">--</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-slate-500 text-xs uppercase">Entry</span>
+                        <span class="text-slate-500 text-xs uppercase" id="t-entry">Entry</span>
                         <span id="posEntry" class="font-mono text-sm">--</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-slate-500 text-xs uppercase">Target (TP)</span>
+                        <span class="text-slate-500 text-xs uppercase" id="t-tp">Target (TP)</span>
                         <span id="posTP" class="font-mono text-sm text-emerald-400">--</span>
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-slate-500 text-xs uppercase">Invalidation (SL)</span>
+                        <span class="text-slate-500 text-xs uppercase" id="t-sl">Invalidation (SL)</span>
                         <span id="posSL" class="font-mono text-sm text-rose-400">--</span>
                     </div>
                     <div class="h-px bg-slate-800 my-2"></div>
                     <div class="flex justify-between items-center">
-                        <span class="text-slate-500 text-xs uppercase">ML Confidence</span>
+                        <span class="text-slate-500 text-xs uppercase" id="t-ml-conf">ML Confidence</span>
                         <span id="posConf" class="font-bold text-blue-400">--</span>
                     </div>
                 </div>
@@ -150,7 +160,7 @@
 
             <!-- Trade History -->
             <div class="glass rounded-[32px] p-8">
-                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6">Execution Log</h3>
+                <h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-6" id="t-exec-log">Execution Log</h3>
                 <div class="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar min-h-[100px]" id="tradeHistory">
                     <!-- JS populated -->
                 </div>
@@ -162,6 +172,75 @@
         const params = new URLSearchParams(window.location.search);
         const agentName = params.get('name') || "Titan-AI";
         let chart, candleSeries;
+        let currentLang = 'en';
+
+        const i18n = {
+            tr: {
+                back: "Komuta Merkezine Dön",
+                panelTitle: "Premium AI Analist Paneli",
+                panelSub: "Gerçek Zamanlı Makine Öğrenimi Analizleri",
+                trainStatus: "Eğitim Durumu",
+                marketFocus: "Birincil Piyasa Odağı",
+                neuralWeights: "Nöral Ağırlıklar (Özellik Önemi)",
+                scorecard: "Performans Karnesi",
+                curBal: "Güncel Bakiye",
+                trades: "İşlemler",
+                winRate: "Başarı Oranı",
+                matrix: "Aktif İşlem Matrisi",
+                side: "Yön",
+                entry: "Giriş",
+                tp: "Hedef (TP)",
+                sl: "Durdurma (SL)",
+                mlConf: "ML Güven Oranı",
+                execLog: "İşlem Günlüğü"
+            },
+            en: {
+                back: "Back to Command Center",
+                panelTitle: "Premium AI Analyst Panel",
+                panelSub: "Real-time Machine Learning Insights",
+                trainStatus: "Training Status",
+                marketFocus: "Primary Market Focus",
+                neuralWeights: "Neural Weights (Feature Importance)",
+                scorecard: "Performance Scorecard",
+                curBal: "Current Balance",
+                trades: "Trades",
+                winRate: "Win Rate",
+                matrix: "Active Trade Matrix",
+                side: "Side",
+                entry: "Entry",
+                tp: "Target (TP)",
+                sl: "Invalidation (SL)",
+                mlConf: "ML Confidence",
+                execLog: "Execution Log"
+            }
+        };
+
+        function toggleLang() {
+            currentLang = currentLang === 'en' ? 'tr' : 'en';
+            updateUIStrings();
+        }
+
+        function updateUIStrings() {
+            const t = i18n[currentLang];
+            document.getElementById('langBtn').innerText = currentLang === 'en' ? 'TR' : 'EN';
+            document.getElementById('t-back').innerText = t.back;
+            document.getElementById('t-panel-title').innerText = t.panelTitle;
+            document.getElementById('t-panel-sub').innerText = t.panelSub;
+            document.getElementById('t-train-status').innerText = t.trainStatus;
+            document.getElementById('t-market-focus').innerText = t.marketFocus;
+            document.getElementById('t-neural-weights').innerText = t.neuralWeights;
+            document.getElementById('t-scorecard').innerText = t.scorecard;
+            document.getElementById('t-cur-bal').innerText = t.curBal;
+            document.getElementById('t-trades').innerText = t.trades;
+            document.getElementById('t-win-rate').innerText = t.winRate;
+            document.getElementById('t-matrix').innerText = t.matrix;
+            document.getElementById('t-side').innerText = t.side;
+            document.getElementById('t-entry').innerText = t.entry;
+            document.getElementById('t-tp').innerText = t.tp;
+            document.getElementById('t-sl').innerText = t.sl;
+            document.getElementById('t-ml-conf').innerText = t.mlConf;
+            document.getElementById('t-exec-log').innerText = t.execLog;
+        }
 
         function initChart() {
             const container = document.getElementById('chartContainer');
@@ -192,6 +271,26 @@
                 wickUpColor: '#10b981',
                 wickDownColor: '#ef4444'
             });
+
+            const legend = document.getElementById('ohlcLegend');
+            const legO = document.getElementById('legO');
+            const legH = document.getElementById('legH');
+            const legL = document.getElementById('legL');
+            const legC = document.getElementById('legC');
+
+            chart.subscribeCrosshairMove(param => {
+                if (param.time && param.seriesData.get(candleSeries)) {
+                    const data = param.seriesData.get(candleSeries);
+                    legend.classList.remove('hidden');
+                    legO.innerText = data.open.toFixed(6);
+                    legH.innerText = data.high.toFixed(6);
+                    legL.innerText = data.low.toFixed(6);
+                    legC.innerText = data.close.toFixed(6);
+                } else {
+                    legend.classList.add('hidden');
+                }
+            });
+
             window.addEventListener('resize', () => { chart.applyOptions({ width: container.clientWidth }); });
         }
 
@@ -273,7 +372,7 @@
             } catch (e) { console.error(e); }
         }
 
-        window.onload = () => { initChart(); updateData(); setInterval(updateData, 10000); };
+        window.onload = () => { initChart(); updateUIStrings(); updateData(); setInterval(updateData, 10000); };
     </script>
 </body>
 </html>

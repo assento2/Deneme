@@ -1,11 +1,11 @@
 fastapi
 uvicorn
+jinja2
 httpx
-joblib
 pandas
 numpy
-scikit-learn
+flaml
+lightgbm
 xgboost
-pytest
-pytest-asyncio
-python-multipart
+scikit-learn
+python-dotenv
