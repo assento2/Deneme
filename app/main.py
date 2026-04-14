@@ -4,49 +4,47 @@ from pydantic import BaseModel
 import os
 import asyncio
 import httpx
+import gc
 from contextlib import asynccontextmanager
 from typing import List, Dict
-from app.agents_logic import SimulationEngine, IntelligenceAgent
+from app.agents_logic import SimulationEngine
 from app.utils.mexc_api import fetch_mexc_kline, market_scanner
 from app.utils.notifier import send_telegram_msg, format_notification
 import pandas as pd
 
-# Initialize Global Components
+# Initialize Engine with Shared Brain
 engine = SimulationEngine()
 trade_history = []
 market_opportunities = []
-global_scanner = IntelligenceAgent("Global-Radar")
 
 async def perform_market_sweep():
-    """Heavy-duty scanner evaluating 50+ symbols using ML."""
+    """Sequential scanner to minimize memory spikes."""
     global market_opportunities
     try:
         symbols = await market_scanner()
-        target_list = symbols[:60] # Scan top 60 projects
+        target_list = symbols[:40] # Reduced from 60 to save RAM
         new_opps = []
 
-        # Parallel scanning in chunks to avoid rate limits
-        chunk_size = 10
+        # Process in small serial chunks to avoid OOM
+        chunk_size = 5
         for i in range(0, len(target_list), chunk_size):
             chunk = target_list[i:i+chunk_size]
-            tasks = [fetch_mexc_kline(sym, interval="5m", limit=300) for sym in chunk]
-            results = await asyncio.gather(*tasks)
-
-            for sym, data in zip(chunk, results):
-                if data:
-                    df = pd.DataFrame(data)
-                    # For performance, we train only if not trained or periodically
-                    if not global_scanner.is_trained:
-                        global_scanner.train(df)
-
-                    pred = global_scanner.predict(df)
-                    if pred["side"] != "NONE":
-                        new_opps.append({
-                            "symbol": sym, "side": pred["side"],
-                            "confidence": pred["confidence"],
-                            "price": data[-1]['close']
-                        })
-            await asyncio.sleep(1) # Breath
+            for sym in chunk:
+                try:
+                    data = await fetch_mexc_kline(sym, interval="5m", limit=200)
+                    if data:
+                        df = pd.DataFrame(data)
+                        pred = engine.brain.predict(df)
+                        if pred["side"] != "NONE":
+                            new_opps.append({
+                                "symbol": sym, "side": pred["side"],
+                                "confidence": pred["confidence"],
+                                "price": data[-1]['close']
+                            })
+                    del data # Explicit cleanup
+                except: continue
+            gc.collect() # Cleanup after each chunk
+            await asyncio.sleep(0.5)
 
         market_opportunities = sorted(new_opps, key=lambda x: x["confidence"], reverse=True)
     except Exception as e:
@@ -60,9 +58,8 @@ async def run_simulation():
         try:
             # Sweep every 5 minutes
             if step_count % 5 == 0:
-                asyncio.create_task(perform_market_sweep())
+                await perform_market_sweep() # Sequential wait to prevent spikes
 
-            # Step engine with current opportunities
             events = await engine.step(market_opportunities)
             step_count += 1
 
@@ -70,7 +67,6 @@ async def run_simulation():
                 msg = format_notification(event)
                 await send_telegram_msg(msg)
 
-            # Update history
             all_trades = []
             for agent in engine.agents:
                 for t in agent.trades:
@@ -78,9 +74,8 @@ async def run_simulation():
 
             all_trades.sort(key=lambda x: x["timestamp"], reverse=True)
             global trade_history
-            trade_history = all_trades[:100]
+            trade_history = all_trades[:50] # Reduced history length
 
-            # Keep-alive
             if RENDER_URL and step_count % 14 == 0:
                 async with httpx.AsyncClient() as client:
                     await client.get(f"{RENDER_URL}/health")
@@ -88,16 +83,15 @@ async def run_simulation():
         except Exception as e:
             print(f"Loop error: {e}")
 
+        gc.collect()
         await asyncio.sleep(60)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(perform_market_sweep())
-    sim_task = asyncio.create_task(run_simulation())
+    asyncio.create_task(run_simulation())
     yield
-    sim_task.cancel()
 
-app = FastAPI(title="CryptoSafe AI - Aegis Omni V4", lifespan=lifespan)
+app = FastAPI(title="Aegis Omni V4 (RAM Optimized)", lifespan=lifespan)
 
 @app.get("/agents")
 async def get_agents(): return engine.get_status()
@@ -117,11 +111,10 @@ async def get_agent_trades(agent_name: str):
 
 @app.get("/kline")
 async def get_kline(symbol: str):
-    data = await fetch_mexc_kline(symbol=symbol, interval="5m", limit=100)
-    return data
+    return await fetch_mexc_kline(symbol=symbol, interval="5m", limit=100)
 
 @app.get("/health")
-async def health(): return {"status": "Aegis-Omni-Active"}
+async def health(): return {"status": "optimized", "mem": "eco"}
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 

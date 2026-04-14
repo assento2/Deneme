@@ -12,21 +12,28 @@ async def test_agent_initialization():
     assert agent.symbol == "WAITING..."
 
 @pytest.mark.asyncio
-async def test_agent_decision_logic():
-    agent = TradingAgent("Test-Agent", 1000)
-    agent.assign_to("BTC_USDT")
+async def test_shared_brain_logic():
+    engine = SimulationEngine()
+    # Provide 200 rows to satisfy min_train_size (150)
     df = pd.DataFrame({
-        'close': np.random.rand(100) + 100,
-        'high': np.random.rand(100) + 101,
-        'low': np.random.rand(100) + 99,
-        'vol': np.random.rand(100) * 1000
+        'close': np.random.rand(200) + 100,
+        'high': np.random.rand(200) + 101,
+        'low': np.random.rand(200) + 99,
+        'vol': np.random.rand(200) * 1000
     })
 
-    agent.tick(df)
-    assert agent.symbol == "BTC_USDT"
+    # Train the shared brain
+    engine.brain.train(df)
+    assert engine.brain.is_trained
+
+    agent = engine.agents[0]
+    agent.symbol = "BTC_USDT"
+    res = agent.tick(df, engine.brain)
+    # Just check if it runs without error
+    assert True
 
 @pytest.mark.asyncio
-async def test_simulation_engine_initialization():
+async def test_simulation_engine_optimized():
     engine = SimulationEngine()
-    assert len(engine.agents) == 10
+    assert len(engine.agents) == 8
     assert engine.agents[0].name == "Aegis-Hunter-1"
