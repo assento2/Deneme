@@ -3,286 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoSafe AI - Command Center</title>
+    <title>Aegis Omni V4 - Dynamic Hunter Network</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Space Grotesk', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
-        .glass { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
-        .agent-card:hover { transform: translateY(-5px); border-color: rgba(59, 130, 246, 0.5); }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@300;500&display=swap');
+
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --cyber-dark: #050505;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--cyber-dark);
+            color: #fff;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 50% 50%, rgba(20, 20, 50, 0.4) 0%, transparent 100%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 100%, 100% 2px, 3px 100%;
+        }
+
+        .header-title { font-family: 'Orbitron', sans-serif; }
+
+        .fui-glass {
+            background: rgba(10, 10, 20, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fui-glass::before {
+            content: "";
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+            animation: scan-line 4s linear infinite;
+        }
+
+        @keyframes scan-line {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .neon-text { text-shadow: 0 0 10px var(--neon-blue); }
+        .neon-border { border-color: var(--neon-blue); box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
+
+        .grid-bg {
+            background-image: linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .hunter-card:hover {
+            border-color: var(--neon-blue);
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
+        }
+
+        .matrix-pixel {
+            width: 12px; height: 12px;
+            border-radius: 2px;
+            transition: all 0.5s;
+        }
+
+        .status-pulse {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px var(--neon-blue); }
+            50% { box-shadow: 0 0 20px var(--neon-blue); }
+            100% { box-shadow: 0 0 5px var(--neon-blue); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-blue); }
     </style>
 </head>
-<body class="p-6 md:p-12">
-    <header class="max-w-[1400px] mx-auto mb-12 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div class="flex items-center space-x-4">
-            <div class="bg-blue-600 p-4 rounded-2xl glow-blue">
-                <i class="fas fa-brain text-white text-3xl"></i>
+<body class="p-4 md:p-8 grid-bg min-h-screen">
+
+    <header class="max-w-[1600px] mx-auto mb-10 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div class="flex items-center space-x-6">
+            <div class="relative">
+                <div class="w-20 h-20 bg-black rounded-full border-2 border-blue-500 flex items-center justify-center status-pulse">
+                    <i class="fas fa-microchip text-4xl text-blue-400"></i>
+                </div>
+                <div class="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-2 border-black"></div>
             </div>
             <div>
-                <h1 class="text-4xl font-bold tracking-tighter">CryptoSafe AI</h1>
-                <p class="text-slate-500 text-sm font-mono uppercase tracking-widest" id="t-subtitle">AUTONOMOUS AGENT NETWORK V2.0</p>
+                <h1 class="header-title text-5xl font-bold tracking-tighter italic neon-text">AEGIS OMNI <span class="text-blue-500">V4</span></h1>
+                <p class="text-xs uppercase tracking-[0.5em] text-blue-400 font-bold">Autonomous Dynamic Hunter Network</p>
             </div>
         </div>
-        <div class="flex items-center space-x-4">
-            <button onclick="toggleLang()" class="px-4 py-2 rounded-xl glass hover:bg-slate-800 transition text-sm font-bold" id="langBtn">TR</button>
-            <div class="flex items-center space-x-2 bg-slate-950/50 px-5 py-3 rounded-full border border-emerald-500/20">
-                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span class="text-xs font-bold text-emerald-500 uppercase tracking-widest" id="t-status">SYSTEM ACTIVE</span>
+
+        <div class="flex items-center space-x-8">
+            <div class="text-right">
+                <p class="text-[10px] text-blue-300 uppercase">Global Liquidity Pool</p>
+                <p class="text-3xl font-bold header-title" id="totalCapital">$0.00</p>
             </div>
+            <button onclick="toggleLang()" class="p-4 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition" id="langBtn">TR</button>
         </div>
     </header>
 
-    <main class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <main class="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Left: Global Matrix Radar -->
         <div class="lg:col-span-3 space-y-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="agentGrid"></div>
-            <div class="glass rounded-[32px] p-8">
-                <div class="flex items-center space-x-3 mb-8">
-                    <i class="fas fa-list-ul text-blue-500"></i>
-                    <h2 class="text-xl font-bold" id="t-log-title">Live Transaction Log</h2>
+            <div class="fui-glass rounded-3xl p-6 border-l-4 border-blue-500">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="header-title text-sm font-bold flex items-center">
+                        <i class="fas fa-satellite-dish mr-3 text-blue-400"></i> <span id="t-radar">MARKET RADAR</span>
+                    </h2>
+                    <span class="text-[10px] bg-blue-500/20 px-2 py-0.5 rounded text-blue-300 animate-pulse">SCANNING</span>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead>
-                            <tr class="text-slate-500 border-b border-slate-800">
-                                <th class="pb-4 font-medium" id="t-h-agent">AGENT</th>
-                                <th class="pb-4 font-medium" id="t-h-pair">PAIR</th>
-                                <th class="pb-4 font-medium" id="t-h-dir">SIDE</th>
-                                <th class="pb-4 font-medium text-right" id="t-h-pnl">PNL</th>
-                                <th class="pb-4 font-medium text-right" id="t-h-bal">BALANCE</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tradeLog"></tbody>
-                    </table>
+
+                <div id="marketMatrix" class="grid grid-cols-5 gap-2 mb-6">
+                    <!-- 50 pixels representing the market -->
+                </div>
+
+                <div id="oppList" class="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                    <p class="text-[10px] text-slate-500 italic">Initializing deep neural sweep...</p>
+                </div>
+            </div>
+
+            <div class="fui-glass rounded-3xl p-6">
+                <h2 class="header-title text-sm mb-4" id="t-system-logs">SYSTEM TELEMETRY</h2>
+                <div id="telemetry" class="space-y-2 font-mono text-[9px] text-blue-300">
+                    <div>> NETWORK_ESTABLISHED: OK</div>
+                    <div>> AUTO_ML_ENGINE: ACTIVE</div>
+                    <div>> HUNTER_POOL: 10/10 READY</div>
                 </div>
             </div>
         </div>
 
-        <div class="space-y-8">
-            <div class="glass rounded-[32px] p-8 border-blue-500/10">
-                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-6" id="t-summary">Network Summary</h3>
-                <div class="space-y-6">
-                    <div>
-                        <p class="text-slate-500 text-xs mb-1" id="t-total-cap">TOTAL CAPITAL</p>
-                        <p class="text-4xl font-bold tracking-tighter" id="totalCapital">$0.00</p>
-                    </div>
-                    <div>
-                        <p class="text-slate-500 text-xs mb-1" id="t-active-agents">ACTIVE AGENTS</p>
-                        <p class="text-4xl font-bold tracking-tighter" id="activeAgents">0</p>
-                    </div>
-                </div>
+        <!-- Center: Hunter Network -->
+        <div class="lg:col-span-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="hunterGrid">
+                <!-- Agents populated here -->
             </div>
+        </div>
 
-            <div class="glass rounded-[32px] p-8 border-emerald-500/10">
-                <div class="flex items-center space-x-3 mb-6">
-                    <i class="fas fa-radar text-emerald-500"></i>
-                    <h3 class="text-lg font-bold" id="t-opp-title">Market Opportunities</h3>
-                </div>
-                <div id="oppList" class="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    <p class="text-slate-500 text-xs italic">Scanning market for high-confidence setups...</p>
-                </div>
-            </div>
-
-            <div class="glass rounded-[32px] p-8">
-                <div class="flex items-center space-x-3 mb-6">
-                    <i class="fas fa-shield-halved text-emerald-500"></i>
-                    <h3 class="text-lg font-bold" id="t-security">Security Filter</h3>
-                </div>
-                <div class="space-y-4">
-                    <input type="text" id="scanSymbol" placeholder="BTC_USDT" class="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:border-blue-500 transition">
-                    <button onclick="scanProject()" id="scanBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition shadow-lg shadow-blue-900/20">Scan Project</button>
-                    <div id="scanResult" class="hidden p-5 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-2">
-                        <div class="flex justify-between text-xs">
-                            <span class="text-slate-500" id="t-score-label">Confidence Score:</span>
-                            <span id="scoreVal" class="font-bold">0%</span>
-                        </div>
-                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
-                            <div id="scoreBar" class="h-full bg-blue-500 transition-all duration-1000" style="width: 0%"></div>
-                        </div>
-                        <p id="scanSide" class="text-center font-bold text-sm uppercase pt-2"></p>
-                    </div>
+        <!-- Right: Execution Stream -->
+        <div class="lg:col-span-3 space-y-8">
+            <div class="fui-glass rounded-3xl p-6 border-r-4 border-purple-500">
+                <h2 class="header-title text-sm font-bold mb-6 flex items-center">
+                    <i class="fas fa-bolt mr-3 text-purple-400"></i> <span id="t-trades">EXECUTION STREAM</span>
+                </h2>
+                <div id="tradeStream" class="space-y-4 max-h-[700px] overflow-y-auto pr-2">
+                    <!-- History here -->
                 </div>
             </div>
         </div>
+
     </main>
 
     <script>
         let currentLang = 'en';
         const i18n = {
             tr: {
-                subtitle: "OTONOM AJAN AĞI V2.0",
-                status: "SİSTEM AKTİF",
-                logTitle: "Canlı İşlem Günlüğü",
-                hAgent: "AJAN",
-                hPair: "PARİTE",
-                hDir: "YÖN",
-                hPnl: "KÂR/ZARAR",
-                hBal: "BAKİYE",
-                summary: "AĞ ÖZETİ",
-                totalCap: "TOPLAM SERMAYE",
-                activeAgents: "AKTİF AJANLAR",
-                oppTitle: "Piyasa Fırsatları",
-                security: "Güvenlik Filtresi",
-                scanBtn: "Projeyi Tara",
-                scoreLabel: "Güven Skoru:",
-                posActive: "AKTİF",
-                balance: "BAKİYE",
-                trades: "İŞLEMLER",
-                lev: "KALDIRAÇ"
+                radar: "PİYASA RADARI",
+                systemLogs: "SİSTEM TELEMETRİSİ",
+                trades: "İŞLEM AKIŞI",
+                waiting: "BEKLİYOR...",
+                hunting: "AVDA",
+                active: "AKTİF İŞLEM",
+                confidence: "GÜVEN",
+                balance: "BAKİYE"
             },
             en: {
-                subtitle: "AUTONOMOUS AGENT NETWORK V2.0",
-                status: "SYSTEM ACTIVE",
-                logTitle: "Live Transaction Log",
-                hAgent: "AGENT",
-                hPair: "PAIR",
-                hDir: "SIDE",
-                hPnl: "PROFIT/LOSS",
-                hBal: "BALANCE",
-                summary: "NETWORK SUMMARY",
-                totalCap: "TOTAL CAPITAL",
-                activeAgents: "ACTIVE AGENTS",
-                oppTitle: "Market Opportunities",
-                security: "Security Filter",
-                scanBtn: "Scan Project",
-                scoreLabel: "Confidence Score:",
-                posActive: "ACTIVE",
-                balance: "BALANCE",
-                trades: "TRADES",
-                lev: "LEVERAGE"
+                radar: "MARKET RADAR",
+                systemLogs: "SYSTEM TELEMETRY",
+                trades: "EXECUTION STREAM",
+                waiting: "WAITING...",
+                hunting: "HUNTING",
+                active: "ACTIVE TRADE",
+                confidence: "CONFIDENCE",
+                balance: "BALANCE"
             }
         };
 
         function toggleLang() {
             currentLang = currentLang === 'en' ? 'tr' : 'en';
-            updateUIStrings();
-        }
-
-        function updateUIStrings() {
-            const t = i18n[currentLang];
             document.getElementById('langBtn').innerText = currentLang === 'en' ? 'TR' : 'EN';
-            document.getElementById('t-subtitle').innerText = t.subtitle;
-            document.getElementById('t-status').innerText = t.status;
-            document.getElementById('t-log-title').innerText = t.logTitle;
-            document.getElementById('t-h-agent').innerText = t.hAgent;
-            document.getElementById('t-h-pair').innerText = t.hPair;
-            document.getElementById('t-h-dir').innerText = t.hDir;
-            document.getElementById('t-h-pnl').innerText = t.hPnl;
-            document.getElementById('t-h-bal').innerText = t.hBal;
-            document.getElementById('t-summary').innerText = t.summary;
-            document.getElementById('t-total-cap').innerText = t.totalCap;
-            document.getElementById('t-active-agents').innerText = t.activeAgents;
-            document.getElementById('t-opp-title').innerText = t.oppTitle;
-            document.getElementById('t-security').innerText = t.security;
-            document.getElementById('scanBtn').innerText = t.scanBtn;
-            document.getElementById('t-score-label').innerText = t.scoreLabel;
-            fetchData();
+            document.getElementById('t-radar').innerText = i18n[currentLang].radar;
+            document.getElementById('t-system-logs').innerText = i18n[currentLang].systemLogs;
+            document.getElementById('t-trades').innerText = i18n[currentLang].trades;
+            updateUI();
         }
 
-        async function fetchData() {
-            const [aRes, tRes, oRes] = await Promise.all([fetch('/agents'), fetch('/trades'), fetch('/opportunities')]);
-            const agents = await aRes.json();
-            const trades = await tRes.json();
-            const opps = await oRes.json();
-            const t = i18n[currentLang];
+        async function updateUI() {
+            try {
+                const [aRes, tRes, oRes] = await Promise.all([
+                    fetch('/agents'), fetch('/trades'), fetch('/opportunities')
+                ]);
+                const agents = await aRes.json();
+                const trades = await tRes.json();
+                const opps = await oRes.json();
+                const t = i18n[currentLang];
 
-            const grid = document.getElementById('agentGrid');
-            grid.innerHTML = agents.map(a => `
-                <a href="/agent_detail.html?name=${a.name}" class="agent-card glass rounded-[32px] p-6 transition-all duration-300 block">
-                    <div class="flex justify-between items-start mb-6">
+                // Update Matrix
+                const matrix = document.getElementById('marketMatrix');
+                matrix.innerHTML = '';
+                for(let i=0; i<50; i++) {
+                    let color = 'bg-slate-800';
+                    if(opps[i]) {
+                        color = opps[i].side === 'LONG' ? 'bg-emerald-500' : 'bg-rose-500';
+                        if(opps[i].confidence > 85) color += ' status-pulse';
+                    }
+                    matrix.innerHTML += `<div class="matrix-pixel ${color} hover:scale-150 cursor-crosshair" title="${opps[i]?.symbol || ''}"></div>`;
+                }
+
+                // Update Opps
+                document.getElementById('oppList').innerHTML = opps.slice(0, 15).map(o => `
+                    <div class="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 flex justify-between items-center group hover:bg-blue-500/20 transition">
                         <div>
-                            <h3 class="text-xl font-bold">${a.name}</h3>
-                            <span class="text-[10px] font-mono bg-slate-800 px-2 py-1 rounded text-slate-400">${a.symbol}</span>
+                            <p class="font-bold text-xs">${o.symbol}</p>
+                            <div class="w-24 h-1 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                                <div class="h-full bg-blue-400" style="width: ${o.confidence}%"></div>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-[10px] text-slate-500 uppercase">${t.balance}</p>
-                            <p class="text-xl font-bold">$${a.balance.toLocaleString()}</p>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div class="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/50">
-                            <p class="text-[10px] text-slate-500 uppercase">${t.trades}</p>
-                            <p class="text-lg font-bold">${a.trade_count}</p>
-                        </div>
-                        <div class="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/50">
-                            <p class="text-[10px] text-slate-500 uppercase">${t.lev}</p>
-                            <p class="text-lg font-bold text-yellow-500">${a.leverage}x</p>
-                        </div>
-                    </div>
-                    ${a.active_position ? `
-                        <div class="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex justify-between items-center">
-                            <span class="text-xs font-bold text-blue-400 uppercase tracking-widest">${t.posActive}: ${a.active_position.side}</span>
-                            <span class="font-mono text-xs">${a.active_position.entry}</span>
-                        </div>
-                    ` : `
-                        <div class="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl text-center">
-                            <span class="text-xs text-slate-600 uppercase font-bold tracking-widest">NO ACTIVE TRADE</span>
-                        </div>
-                    `}
-                </a>
-            `).join('');
-
-            document.getElementById('tradeLog').innerHTML = trades.map(tr => `
-                <tr class="border-b border-slate-800/50 hover:bg-slate-800/20 transition">
-                    <td class="py-4 font-bold text-xs">${tr.agent}</td>
-                    <td class="py-4 text-xs font-mono text-slate-400">${tr.symbol}</td>
-                    <td class="py-4">
-                        <span class="text-[10px] font-bold px-2 py-1 rounded ${tr.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${tr.side}</span>
-                    </td>
-                    <td class="py-4 text-right font-bold text-xs ${tr.net_profit_loss >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
-                        ${tr.net_profit_loss >= 0 ? '+' : ''}$${Math.abs(tr.net_profit_loss).toFixed(2)}
-                    </td>
-                    <td class="py-4 text-right font-mono text-xs text-slate-300">$${tr.balance_after.toLocaleString()}</td>
-                </tr>
-            `).join('');
-
-            const total = agents.reduce((sum, a) => sum + a.balance, 0);
-            document.getElementById('totalCapital').innerText = "$" + total.toLocaleString(undefined, {minimumFractionDigits: 2});
-            document.getElementById('activeAgents').innerText = agents.length;
-
-            if (opps.length > 0) {
-                document.getElementById('oppList').innerHTML = opps.map(o => `
-                    <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 flex justify-between items-center">
-                        <div>
-                            <p class="font-bold text-sm">${o.symbol}</p>
-                            <p class="text-[10px] text-slate-500">Confidence: ${o.confidence.toFixed(1)}%</p>
-                        </div>
-                        <span class="text-[10px] font-bold px-3 py-1 rounded ${o.side === 'LONG' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">${o.side}</span>
+                        <span class="text-[10px] font-bold ${o.side === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${o.side}</span>
                     </div>
                 `).join('');
-            }
-        }
 
-        async function scanProject() {
-            const sym = document.getElementById('scanSymbol').value.toUpperCase();
-            if(!sym) return;
-            const btn = document.getElementById('scanBtn');
-            btn.disabled = true; btn.innerText = "Analyzing...";
+                // Update Grid
+                document.getElementById('hunterGrid').innerHTML = agents.map(a => `
+                    <a href="/agent_detail.html?name=${a.name}" class="fui-glass hunter-card rounded-2xl p-5 transition-all block border-l-2 ${a.active_position ? 'border-emerald-500' : 'border-blue-500/30'}">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="header-title text-xs font-bold text-blue-400">${a.name}</h3>
+                                <p class="text-[10px] text-slate-400">${a.symbol}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[9px] text-slate-500">${t.balance}</p>
+                                <p class="text-sm font-bold">$${a.balance.toLocaleString()}</p>
+                            </div>
+                        </div>
+                        ${a.active_position ? `
+                            <div class="mt-4 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded flex justify-between items-center">
+                                <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest animate-pulse">${t.active}</span>
+                                <span class="text-[10px] font-mono text-emerald-200">${a.active_position.side} @ ${a.active_position.entry.toFixed(4)}</span>
+                            </div>
+                        ` : `
+                            <div class="mt-4 p-2 bg-blue-500/5 border border-blue-500/10 rounded text-center">
+                                <span class="text-[9px] text-slate-600 uppercase tracking-widest">${t.waiting}</span>
+                            </div>
+                        `}
+                    </a>
+                `).join('');
 
-            try {
-                const res = await fetch('/scan-project', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({symbol: sym})
-                });
-                const data = await res.json();
+                // Update Stream
+                document.getElementById('tradeStream').innerHTML = trades.slice(0, 20).map(tr => `
+                    <div class="p-4 rounded-2xl bg-black/40 border border-purple-500/10 hover:border-purple-500/40 transition">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] font-bold text-purple-300">${tr.agent}</span>
+                            <span class="text-[9px] text-slate-500">${new Date(tr.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-xs font-bold">${tr.symbol}</span>
+                            <span class="text-xs font-bold ${tr.net_profit_loss >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+                                ${tr.net_profit_loss >= 0 ? '+' : ''}$${tr.net_profit_loss.toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="mt-1 text-[9px] text-slate-500 italic">"${tr.reasoning}"</div>
+                    </div>
+                `).join('');
 
-                const resBox = document.getElementById('scanResult');
-                resBox.classList.remove('hidden');
-                document.getElementById('scoreVal').innerText = data.confidence.toFixed(1) + "%";
-                document.getElementById('scoreBar').style.width = data.confidence + "%";
-
-                const sideText = document.getElementById('scanSide');
-                sideText.innerText = data.side === 'NONE' ? 'NEUTRAL / WAIT' : `RECOMMENDED: ${data.side}`;
-                sideText.className = "text-center font-bold text-sm uppercase pt-2 " + (data.side === 'LONG' ? 'text-emerald-400' : data.side === 'SHORT' ? 'text-rose-400' : 'text-slate-400');
+                const total = agents.reduce((sum, a) => sum + a.balance, 0);
+                document.getElementById('totalCapital').innerText = "$" + total.toLocaleString(undefined, {minimumFractionDigits: 2});
 
             } catch(e) { console.error(e); }
-            btn.disabled = false; btn.innerText = i18n[currentLang].scanBtn;
         }
 
-        setInterval(fetchData, 10000);
-        updateUIStrings();
+        setInterval(updateUI, 5000);
+        updateUI();
     </script>
 </body>
 </html>

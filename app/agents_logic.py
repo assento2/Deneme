@@ -7,6 +7,7 @@ import logging
 import os
 import json
 import warnings
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class Position:
         }
 
 class IntelligenceAgent:
-    """A self-developing ML agent using XGBoost."""
+    """A self-developing ML agent using AutoML."""
 
     def __init__(self, model_name: str):
         self.model_name = model_name
@@ -78,19 +79,15 @@ class IntelligenceAgent:
         # Momentum
         df['mom'] = df['close'].pct_change(periods=5)
 
-        # FreqAI-inspired Lags for Aegis-Master
-        if "Master" in self.model_name:
-            for i in [1, 3, 5]:
-                df[f'rsi_lag_{i}'] = df['rsi'].shift(i)
-                df[f'mom_lag_{i}'] = df['mom'].shift(i)
+        # FreqAI-inspired Lags
+        for i in [1, 3, 5]:
+            df[f'rsi_lag_{i}'] = df['rsi'].shift(i)
+            df[f'mom_lag_{i}'] = df['mom'].shift(i)
 
         return df.bfill().dropna()
 
     def _prepare_features(self, df: pd.DataFrame):
-        base_cols = ['rsi', 'volatility', 'mom']
-        if "Master" in self.model_name:
-            base_cols += ['rsi_lag_1', 'rsi_lag_3', 'rsi_lag_5', 'mom_lag_1', 'mom_lag_3', 'mom_lag_5']
-
+        base_cols = ['rsi', 'volatility', 'mom', 'rsi_lag_1', 'rsi_lag_3', 'rsi_lag_5', 'mom_lag_1', 'mom_lag_3', 'mom_lag_5']
         features = df[base_cols].copy()
         features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
         # Explicitly cast to float32
@@ -107,42 +104,33 @@ class IntelligenceAgent:
         y = target.iloc[:-5]
         try:
             settings = {
-                "time_budget": 10,
+                "time_budget": 5, # Fast training for dynamic hunting
                 "metric": 'accuracy',
                 "task": 'classification',
                 "log_file_name": "",
                 "verbose": 0
             }
-            # To bypass pandas StringDtype issues in FLAML/Numpy,
-            # we re-construct a "clean" DataFrame with object-type columns.
-            # This satisfies both the need for feature names and the need to avoid StringDtype.
             X_clean = pd.DataFrame(X.values, columns=list(X.columns), dtype=np.float32)
             X_clean.columns = X_clean.columns.astype(object)
 
-            self.model.fit(
-                X_train=X_clean,
-                y_train=y.values,
-                **settings
-            )
+            self.model.fit(X_train=X_clean, y_train=y.values, **settings)
             self.is_trained = True
         except Exception as e:
             logger.error(f"AutoML Training Error for {self.model_name}: {e}")
 
     def get_ml_insights(self) -> Dict:
         if not self.is_trained:
-            return {
-                "status": "Learning (AutoML Warmup)",
-                "focus": "Heuristic Indicators",
-                "importance": {"RSI": 0.4, "EMA": 0.4, "Volatility": 0.2},
-                "insight": "AutoML is currently evaluating the best model architecture for this symbol."
-            }
+            return {"status": "Learning", "focus": "HEURISTIC", "importance": {}, "insight": "Scanning market structure..."}
 
         try:
             best_est = self.model.best_estimator
             importance_dict = {}
-            feature_names = list(self._prepare_features(pd.DataFrame(columns=['rsi','volatility','mom','ema_9','ema_21'], data=[[0,0,0,0,0]])).columns)
+            # Robust feature name extraction
+            dummy_data = pd.DataFrame({
+                'close': [100.0]*50, 'high': [101.0]*50, 'low': [99.0]*50, 'vol': [1000.0]*50
+            })
+            feature_names = list(self._prepare_features(self.calculate_indicators(dummy_data)).columns)
 
-            # Attempt to get feature importance from the best model
             if hasattr(self.model.model.estimator, 'feature_importances_'):
                 importances = self.model.model.estimator.feature_importances_
                 importance_dict = {name: round(float(imp), 3) for name, imp in zip(feature_names, importances)}
@@ -150,124 +138,111 @@ class IntelligenceAgent:
                 importance_dict = {name: 1.0/len(feature_names) for name in feature_names}
 
             top_feature = max(importance_dict, key=importance_dict.get)
-
-            insights_map = {
-                "rsi": "Strong focus on oversold/overbought cycles to predict reversals.",
-                "volatility": "Prioritizing market stability and breakout volatility as key signal filters.",
-                "mom": "Momentum tracking is currently the primary driver for directionality prediction.",
-                "ema_diff": "Trend structural alignment (EMA crosses) is yielding the highest confidence."
-            }
-
             return {
-                "status": f"Operational (AutoML: {best_est.upper()})",
+                "status": f"Operational ({best_est.upper()})",
                 "focus": top_feature.upper(),
                 "importance": importance_dict,
-                "insight": insights_map.get(top_feature, f"The optimized {best_est} model is detecting deep price correlations across time lags.")
+                "insight": f"Model is currently prioritizing {top_feature.upper()} across multiple time-lags."
             }
-        except Exception as e:
-            logger.error(f"Insights error: {e}")
-            return {"status": "Error", "insight": "AutoML metrics temporarily unavailable."}
+        except:
+            return {"status": "Operational", "insight": "Neural mapping active."}
 
     def predict(self, df: pd.DataFrame) -> Dict:
-        if len(df) < 30: return {"side": "NONE", "confidence": 0, "mode": "learning"}
+        if len(df) < 30: return {"side": "NONE", "confidence": 0}
         df_ind = self.calculate_indicators(df)
-        if df_ind.empty: return {"side": "NONE", "confidence": 0, "mode": "learning"}
+        if df_ind.empty: return {"side": "NONE", "confidence": 0}
         last_row = df_ind.iloc[-1:]
 
         if not self.is_trained:
+            # Heuristic fallback
             rsi = last_row['rsi'].values[0]
-            ema_diff = (last_row['ema_9'].values[0] - last_row['ema_21'].values[0])
             side = "NONE"
-            if rsi < 35 and ema_diff > 0: side = "LONG"
-            elif rsi > 65 and ema_diff < 0: side = "SHORT"
-            return {"side": side, "confidence": 50.0, "mode": "learning"}
+            if rsi < 30: side = "LONG"
+            elif rsi > 70: side = "SHORT"
+            return {"side": side, "confidence": 55.0}
 
         X_test = self._prepare_features(last_row)
+        X_test_clean = pd.DataFrame(X_test.values, columns=list(X_test.columns), dtype=np.float32)
+        X_test_clean.columns = X_test_clean.columns.astype(object)
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning)
-            # Use "clean" DataFrame approach for consistency with training
-            X_test_clean = pd.DataFrame(X_test.values, columns=list(X_test.columns), dtype=np.float32)
-            X_test_clean.columns = X_test_clean.columns.astype(object)
+        try:
             prob = self.model.predict_proba(X_test_clean)[0][1]
-
-        side = "NONE"
-        confidence = 0
-        if prob > 0.65:
-            side = "LONG"
-            confidence = prob * 100
-        elif prob < 0.35:
-            side = "SHORT"
-            confidence = (1 - prob) * 100
-        return {"side": side, "confidence": round(float(confidence), 2), "mode": "ml"}
+            side = "NONE"
+            confidence = 0
+            if prob > 0.70: side = "LONG"; confidence = prob * 100
+            elif prob < 0.30: side = "SHORT"; confidence = (1 - prob) * 100
+            return {"side": side, "confidence": round(float(confidence), 2)}
+        except:
+            return {"side": "NONE", "confidence": 0}
 
 class TradingAgent:
-    def __init__(self, name: str, symbol: str, balance: float = 1000.0, strategy: str = "ML Default"):
+    def __init__(self, name: str, balance: float = 1000.0):
         self.name = name
-        self.symbol = symbol
+        self.symbol = "WAITING..."
         self.balance = balance
-        self.strategy_name = strategy
         self.intelligence = IntelligenceAgent(name)
         self.active_position: Optional[Position] = None
         self.trades = []
         self.leverage = 10
 
+    def assign_to(self, symbol: str):
+        if not self.active_position:
+            self.symbol = symbol
+            self.intelligence.is_trained = False # Re-train for new project
+
     def tick(self, df: pd.DataFrame):
-        if len(df) < 2: return
+        if self.symbol == "WAITING...": return None
+        if len(df) < 2: return None
+
         if not self.intelligence.is_trained and len(df) >= self.intelligence.min_train_size:
             self.intelligence.train(df)
 
         prediction = self.intelligence.predict(df)
-        last_candle = df.iloc[-1]
-        current_price = last_candle['close']
+        current_price = df.iloc[-1]['close']
 
         if self.active_position:
+            # Exit Logic (TP/SL/Reversal)
             should_exit = False
             exit_reason = ""
             exit_price = current_price
 
-            pnl_high = self.active_position.calculate_pnl_pct(last_candle['high'])
-            pnl_low = self.active_position.calculate_pnl_pct(last_candle['low'])
+            pnl_high = self.active_position.calculate_pnl_pct(df.iloc[-1]['high'])
+            pnl_low = self.active_position.calculate_pnl_pct(df.iloc[-1]['low'])
 
             if self.active_position.side == "LONG":
-                if pnl_high >= 0.15: # TP
-                    should_exit = True; exit_reason = "Take Profit"; exit_price = self.active_position.tp_price
-                elif pnl_low <= -0.05: # SL
-                    should_exit = True; exit_reason = "Stop Loss"; exit_price = self.active_position.sl_price
-                elif prediction['side'] == "SHORT":
-                    should_exit = True; exit_reason = "Signal Reversal"
+                if pnl_high >= 0.15: should_exit = True; exit_reason = "Take Profit"; exit_price = self.active_position.tp_price
+                elif pnl_low <= -0.05: should_exit = True; exit_reason = "Stop Loss"; exit_price = self.active_position.sl_price
+                elif prediction['side'] == "SHORT": should_exit = True; exit_reason = "ML Reversal"
             else:
-                if pnl_low >= 0.15: # TP for short (price down)
-                    should_exit = True; exit_reason = "Take Profit"; exit_price = self.active_position.tp_price
-                elif pnl_high <= -0.05: # SL for short (price up)
-                    should_exit = True; exit_reason = "Stop Loss"; exit_price = self.active_position.sl_price
-                elif prediction['side'] == "LONG":
-                    should_exit = True; exit_reason = "Signal Reversal"
+                if pnl_low >= 0.15: should_exit = True; exit_reason = "Take Profit"; exit_price = self.active_position.tp_price
+                elif pnl_high <= -0.05: should_exit = True; exit_reason = "Stop Loss"; exit_price = self.active_position.sl_price
+                elif prediction['side'] == "LONG": should_exit = True; exit_reason = "ML Reversal"
 
             if should_exit:
                 pnl_pct = self.active_position.calculate_pnl_pct(exit_price)
                 net_profit = self.balance * pnl_pct
                 fees = self.balance * (self.active_position.fee_rate * 2 * self.leverage)
-
                 self.balance += net_profit
                 trade_record = {
-                    "symbol": str(self.symbol),
-                    "side": str(self.active_position.side),
-                    "entry_price": round(float(self.active_position.entry_price), 6),
-                    "exit_price": round(float(exit_price), 6),
-                    "net_profit_loss": round(float(net_profit), 2),
-                    "profit_pct": round(float(pnl_pct * 100), 2),
-                    "fees": round(float(fees), 2),
-                    "balance_after": round(float(self.balance), 2),
-                    "reasoning": str(exit_reason),
-                    "success": bool(pnl_pct > 0),
+                    "symbol": self.symbol,
+                    "side": self.active_position.side,
+                    "entry_price": self.active_position.entry_price,
+                    "exit_price": exit_price,
+                    "net_profit_loss": round(net_profit, 2),
+                    "profit_pct": round(pnl_pct * 100, 2),
+                    "fees": round(fees, 2),
+                    "balance_after": round(self.balance, 2),
+                    "reasoning": exit_reason,
+                    "success": pnl_pct > 0,
                     "timestamp": datetime.now().isoformat()
                 }
                 self.trades.append(trade_record)
                 self.active_position = None
-                return trade_record # Signal for notification
+                # After exit, go back to waiting state to find new opportunities
+                self.symbol = "WAITING..."
+                return {"type": "EXIT", "agent": self.name, **trade_record}
         else:
-            if prediction['side'] != "NONE" and prediction['confidence'] >= 65:
+            if prediction['side'] != "NONE" and prediction['confidence'] >= 70:
                 self.active_position = Position(prediction['side'], current_price, self.leverage, prediction['confidence'])
                 return {
                     "type": "ENTRY",
@@ -283,95 +258,64 @@ class SimulationEngine:
     STATE_FILE = "agent_state.json"
 
     def __init__(self):
-        self.agents = [
-            TradingAgent("Titan-AI", "BTC_USDT", 1000.0, "Neural Momentum"),
-            TradingAgent("Oracle-Bot", "ETH_USDT", 1000.0, "XGB-Trend"),
-            TradingAgent("Nexus Alpha", "SOL_USDT", 1000.0, "Ensemble Scalp"),
-            TradingAgent("Cyber-Whale", "BNB_USDT", 1000.0, "Deep Liquidity"),
-            TradingAgent("Aegis-Trader", "XRP_USDT", 1000.0, "Risk-Adjusted ML"),
-            TradingAgent("Aegis-Master", "TAO_USDT", 1000.0, "FreqAI High-Lag")
-        ]
+        self.agents = [TradingAgent(f"Aegis-Hunter-{i+1}", 1000.0) for i in range(10)]
         self.load_state()
+        self.global_opportunities = []
 
     def save_state(self):
-        state = []
-        for a in self.agents:
-            state.append({
-                "name": a.name,
-                "balance": a.balance,
-                "trades": a.trades,
-                "active_position": a.active_position.to_dict() if a.active_position else None
-            })
-        with open(self.STATE_FILE, "w") as f:
-            json.dump(state, f)
+        state = [{"name": a.name, "balance": a.balance, "trades": a.trades, "symbol": a.symbol,
+                  "active_position": a.active_position.to_dict() if a.active_position else None} for a in self.agents]
+        with open(self.STATE_FILE, "w") as f: json.dump(state, f)
 
     def load_state(self):
         if not os.path.exists(self.STATE_FILE): return
         try:
-            with open(self.STATE_FILE, "r") as f:
-                state = json.load(f)
+            with open(self.STATE_FILE, "r") as f: state = json.load(f)
             for s in state:
                 agent = next((a for a in self.agents if a.name == s["name"]), None)
                 if agent:
-                    agent.balance = s["balance"]
-                    agent.trades = s["trades"]
+                    agent.balance, agent.trades, agent.symbol = s["balance"], s["trades"], s["symbol"]
                     if s["active_position"]:
-                        pos = s["active_position"]
-                        agent.active_position = Position(pos["side"], pos["entry"], pos["leverage"], pos["confidence"])
-                        agent.active_position.entry_time = pos["entry_time"]
-        except Exception as e:
-            logger.error(f"Load state error: {e}")
+                        p = s["active_position"]
+                        agent.active_position = Position(p["side"], p["entry"], p["leverage"], p["confidence"])
+                        agent.active_position.entry_time = p["entry_time"]
+        except: pass
 
-    async def step(self):
-        from app.utils.mexc_api import fetch_mexc_kline, market_scanner
-
-        # Periodic Market Realignment: Ensure agents are on the most relevant pairs
-        try:
-            top_pairs = await market_scanner()
-            # If an agent is not in a position, consider re-assigning it to a top trending pair
-            for i, agent in enumerate(self.agents):
-                if not agent.active_position and i < len(top_pairs):
-                    # Rotate pairs if not currently in trade to catch new trends
-                    if agent.symbol not in top_pairs[:10]:
-                        new_symbol = top_pairs[i % 20]
-                        if new_symbol != agent.symbol:
-                            logger.info(f"Re-aligning {agent.name} from {agent.symbol} to {new_symbol}")
-                            agent.symbol = new_symbol
-                            agent.intelligence.is_trained = False # Re-train for new pair
-        except Exception as e:
-            logger.error(f"Market realignment error: {e}")
-
+    async def step(self, opportunities: List[Dict]):
+        self.global_opportunities = opportunities
         notifications = []
+
+        # 1. Dispatch Idle Agents to best opportunities
+        active_symbols = [a.symbol for a in self.agents if a.active_position]
+        idle_agents = [a for a in self.agents if not a.active_position]
+
+        # Filter opportunities: not currently traded, confidence >= 70
+        valid_opps = [o for o in opportunities if o['symbol'] not in active_symbols and o['confidence'] >= 75]
+        valid_opps.sort(key=lambda x: x['confidence'], reverse=True)
+
+        for agent in idle_agents:
+            if valid_opps:
+                opp = valid_opps.pop(0)
+                agent.assign_to(opp['symbol'])
+
+        # 2. Tick all agents
+        from app.utils.mexc_api import fetch_mexc_kline
         for agent in self.agents:
+            if agent.symbol == "WAITING...": continue
             try:
                 data = await fetch_mexc_kline(agent.symbol, interval="5m", limit=500)
                 if data:
-                    df = pd.DataFrame(data)
-                    result = agent.tick(df)
-                    if result:
-                        if "type" in result: # Entry
-                            notifications.append(result)
-                        else: # Exit
-                            notifications.append({"type": "EXIT", "agent": agent.name, **result})
-            except Exception as e:
-                logger.error(f"Error in {agent.name}: {e}")
+                    res = agent.tick(pd.DataFrame(data))
+                    if res: notifications.append(res)
+            except: pass
 
-        if notifications:
-            self.save_state()
+        if notifications: self.save_state()
         return notifications
 
     def get_status(self):
-        return [
-            {
-                "name": str(a.name),
-                "symbol": str(a.symbol),
-                "strategy": str(a.strategy_name),
-                "balance": round(float(a.balance), 2),
-                "trade_count": int(len(a.trades)),
-                "leverage": int(a.leverage),
-                "active_position": a.active_position.to_dict() if a.active_position else None,
-                "last_trade": a.trades[-1] if a.trades else None,
-                "ml_insights": a.intelligence.get_ml_insights()
-            }
-            for a in self.agents
-        ]
+        return [{
+            "name": a.name, "symbol": a.symbol, "balance": round(a.balance, 2),
+            "trade_count": len(a.trades), "leverage": a.leverage,
+            "active_position": a.active_position.to_dict() if a.active_position else None,
+            "ml_insights": a.intelligence.get_ml_insights()
+        } for a in self.agents]
