@@ -198,16 +198,16 @@ class TradingAgent:
                 elif prediction['side'] == "LONG": should_exit = True; exit_reason = "Brain Reversal"
 
             if should_exit:
-                pnl_pct = self.active_position.calculate_pnl_pct(exit_price)
-                net_profit = self.balance * pnl_pct
-                fees = self.balance * (self.active_position.fee_rate * 2 * self.leverage)
+                pnl_pct = float(self.active_position.calculate_pnl_pct(exit_price))
+                net_profit = float(self.balance * pnl_pct)
+                fees = float(self.balance * (self.active_position.fee_rate * 2 * self.leverage))
                 self.balance += net_profit
                 trade_record = {
-                    "symbol": self.symbol, "side": self.active_position.side,
-                    "entry_price": self.active_position.entry_price, "exit_price": exit_price,
-                    "net_profit_loss": round(net_profit, 2), "profit_pct": round(pnl_pct * 100, 2),
-                    "fees": round(fees, 2), "balance_after": round(self.balance, 2),
-                    "reasoning": exit_reason, "success": pnl_pct > 0, "timestamp": datetime.now().isoformat()
+                    "symbol": str(self.symbol), "side": str(self.active_position.side),
+                    "entry_price": float(self.active_position.entry_price), "exit_price": float(exit_price),
+                    "net_profit_loss": round(float(net_profit), 2), "profit_pct": round(float(pnl_pct * 100), 2),
+                    "fees": round(float(fees), 2), "balance_after": round(float(self.balance), 2),
+                    "reasoning": str(exit_reason), "success": bool(pnl_pct > 0), "timestamp": datetime.now().isoformat()
                 }
                 self.trades.append(trade_record)
                 self.active_position = None
@@ -228,10 +228,10 @@ class TradingAgent:
                     can_enter = True; side = prediction['side']; conf = prediction['confidence']
 
             if can_enter:
-                self.active_position = Position(side, current_price, self.leverage, conf)
+                self.active_position = Position(side, float(current_price), self.leverage, float(conf))
                 return {
-                    "type": "ENTRY", "agent": self.name, "symbol": self.symbol,
-                    "side": side, "price": current_price, "confidence": conf
+                    "type": "ENTRY", "agent": str(self.name), "symbol": str(self.symbol),
+                    "side": str(side), "price": float(current_price), "confidence": float(conf)
                 }
         return None
 
@@ -304,9 +304,13 @@ class SimulationEngine:
 
     def get_status(self):
         brain_insights = self.brain.get_ml_insights()
+        # Ensure insights values are also serializable
+        if "importance" in brain_insights:
+            brain_insights["importance"] = {k: float(v) for k, v in brain_insights["importance"].items()}
+
         return [{
-            "name": a.name, "symbol": a.symbol, "balance": round(a.balance, 2),
-            "trade_count": len(a.trades), "leverage": a.leverage, "is_special": a.is_bottom_hunter,
+            "name": str(a.name), "symbol": str(a.symbol), "balance": round(float(a.balance), 2),
+            "trade_count": int(len(a.trades)), "leverage": int(a.leverage), "is_special": bool(a.is_bottom_hunter),
             "active_position": a.active_position.to_dict() if a.active_position else None,
             "ml_insights": brain_insights
         } for a in self.agents]
