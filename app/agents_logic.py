@@ -51,85 +51,91 @@ class Position:
         }
 
 class IntelligenceAgent:
-    """Memory-optimized ML agent."""
     def __init__(self, model_name: str):
         self.model_name = model_name
         self.model = AutoML()
         self.is_trained = False
-        self.min_train_size = 150 # Reduced from 200
+        self.min_train_size = 150
 
     def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
         df['ema_9'] = df['close'].ewm(span=9).mean()
         df['ema_21'] = df['close'].ewm(span=21).mean()
 
+        # RSI
         delta = df['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         df['rsi'] = 100 - (100 / (1 + rs))
+
+        # Stochastic RSI
+        low_rsi = df['rsi'].rolling(window=14).min()
+        high_rsi = df['rsi'].rolling(window=14).max()
+        df['stoch_rsi'] = (df['rsi'] - low_rsi) / (high_rsi - low_rsi)
+        df['stoch_k'] = df['stoch_rsi'].rolling(window=3).mean() * 100
+        df['stoch_d'] = df['stoch_k'].rolling(window=3).mean()
+
         df['volatility'] = df['close'].rolling(window=14).std() / df['close'].rolling(window=14).mean()
         df['mom'] = df['close'].pct_change(periods=5)
 
-        for i in [1, 3]: # Reduced lags to save memory
+        for i in [1, 3]:
             df[f'rsi_lag_{i}'] = df['rsi'].shift(i)
 
         return df.bfill().dropna()
 
     def _prepare_features(self, df: pd.DataFrame):
-        base_cols = ['rsi', 'volatility', 'mom', 'rsi_lag_1', 'rsi_lag_3']
+        base_cols = ['rsi', 'volatility', 'mom', 'rsi_lag_1', 'rsi_lag_3', 'stoch_k', 'stoch_d']
         features = df[base_cols].copy()
         features['ema_diff'] = (df['ema_9'] - df['ema_21']) / df['ema_21']
         return features.astype(np.float32)
 
     def train(self, df: pd.DataFrame):
         if len(df) < self.min_train_size: return
-        df_ind = self.calculate_indicators(df).tail(250) # Keep only recent history
+        df_ind = self.calculate_indicators(df).tail(250)
         features = self._prepare_features(df_ind)
         target = (df_ind['close'].shift(-5) > df_ind['close']).astype(int)
         X = features.iloc[:-5]
         y = target.iloc[:-5]
 
         try:
-            settings = {
-                "time_budget": 5,
-                "metric": 'accuracy',
-                "task": 'classification',
-                "estimator_list": ['lgbm'], # Use only LightGBM (lighter than XGB)
-                "log_file_name": "",
-                "verbose": 0,
-                "n_jobs": 1 # Single thread to save memory
-            }
+            settings = {"time_budget": 5, "metric": 'accuracy', "task": 'classification',
+                        "estimator_list": ['lgbm'], "log_file_name": "", "verbose": 0, "n_jobs": 1}
             X_clean = pd.DataFrame(X.values, columns=list(X.columns), dtype=np.float32)
             X_clean.columns = X_clean.columns.astype(object)
-
             self.model.fit(X_train=X_clean, y_train=y.values, **settings)
             self.is_trained = True
-            gc.collect() # Immediate cleanup
-        except Exception as e:
-            logger.error(f"Train Error: {e}")
+            gc.collect()
+        except: pass
 
     def get_ml_insights(self) -> Dict:
         if not self.is_trained:
-            return {"status": "Optimizing RAM", "focus": "HEURISTIC", "importance": {}, "insight": "Eco-Mode active."}
+            return {"status": "Learning (RAM Eco)", "focus": "HEURISTIC", "importance": {}, "insight": "Scanning market structure..."}
+
         try:
             best_est = self.model.best_estimator
-            dummy_data = pd.DataFrame({'close': [100.0]*50, 'high': [101.0]*50, 'low': [99.0]*50, 'vol': [1000.0]*50})
+            importance_dict = {}
+            # Robust feature name extraction
+            dummy_data = pd.DataFrame({
+                'close': [100.0]*50, 'high': [101.0]*50, 'low': [99.0]*50, 'vol': [1000.0]*50
+            })
             feature_names = list(self._prepare_features(self.calculate_indicators(dummy_data)).columns)
 
             if hasattr(self.model.model.estimator, 'feature_importances_'):
                 importances = self.model.model.estimator.feature_importances_
                 importance_dict = {name: round(float(imp), 3) for name, imp in zip(feature_names, importances)}
             else:
-                importance_dict = {name: 0.2 for name in feature_names}
+                importance_dict = {name: 1.0/len(feature_names) for name in feature_names}
 
+            top_feature = max(importance_dict, key=importance_dict.get)
             return {
-                "status": f"Active ({best_est})",
-                "focus": max(importance_dict, key=importance_dict.get).upper(),
+                "status": f"Active ({best_est.upper()})",
+                "focus": top_feature.upper(),
                 "importance": importance_dict,
-                "insight": "Memory-optimized neural mapping active."
+                "insight": f"Shared Brain is prioritizing {top_feature.upper()} for global inference."
             }
-        except: return {"status": "Active", "insight": "Inference online."}
+        except Exception as e:
+            return {"status": "Active", "insight": f"Neural mapping online. (Error: {e})"}
 
     def predict(self, df: pd.DataFrame) -> Dict:
         if len(df) < 30: return {"side": "NONE", "confidence": 0}
@@ -164,12 +170,14 @@ class TradingAgent:
         self.active_position: Optional[Position] = None
         self.trades = []
         self.leverage = 10
+        self.is_bottom_hunter = "Hunter-9" in name
 
     def tick(self, df: pd.DataFrame, shared_brain: IntelligenceAgent):
         if self.symbol == "WAITING...": return None
-        if len(df) < 2: return None
+        if len(df) < 30: return None
 
-        # Agents use the Shared Brain for inference
+        df_ind = shared_brain.calculate_indicators(df)
+        last_row = df_ind.iloc[-1]
         prediction = shared_brain.predict(df)
         current_price = df.iloc[-1]['close']
 
@@ -177,7 +185,6 @@ class TradingAgent:
             should_exit = False
             exit_reason = ""
             exit_price = current_price
-
             pnl_high = self.active_position.calculate_pnl_pct(df.iloc[-1]['high'])
             pnl_low = self.active_position.calculate_pnl_pct(df.iloc[-1]['low'])
 
@@ -207,11 +214,24 @@ class TradingAgent:
                 self.symbol = "WAITING..."
                 return {"type": "EXIT", "agent": self.name, **trade_record}
         else:
-            if prediction['side'] != "NONE" and prediction['confidence'] >= 70:
-                self.active_position = Position(prediction['side'], current_price, self.leverage, prediction['confidence'])
+            can_enter = False
+            conf = 0
+            side = "NONE"
+
+            # Bottom Hunter (Hunter-9) Logic: Extremes
+            if self.is_bottom_hunter:
+                # Needle in a haystack: RSI < 20 and StochRSI < 10
+                if last_row['rsi'] < 20 and last_row['stoch_k'] < 10:
+                    can_enter = True; side = "LONG"; conf = 85.0 # High conf for bottom catch
+            else:
+                if prediction['side'] != "NONE" and prediction['confidence'] >= 75:
+                    can_enter = True; side = prediction['side']; conf = prediction['confidence']
+
+            if can_enter:
+                self.active_position = Position(side, current_price, self.leverage, conf)
                 return {
                     "type": "ENTRY", "agent": self.name, "symbol": self.symbol,
-                    "side": prediction['side'], "price": current_price, "confidence": prediction['confidence']
+                    "side": side, "price": current_price, "confidence": conf
                 }
         return None
 
@@ -219,8 +239,7 @@ class SimulationEngine:
     STATE_FILE = "agent_state.json"
 
     def __init__(self):
-        # Reduced pool to 8 to save RAM
-        self.agents = [TradingAgent(f"Aegis-Hunter-{i+1}", 1000.0) for i in range(8)]
+        self.agents = [TradingAgent(f"Aegis-Hunter-{i+1}", 1000.0) for i in range(9)]
         self.brain = IntelligenceAgent("GlobalBrain")
         self.load_state()
         self.global_opportunities = []
@@ -234,7 +253,7 @@ class SimulationEngine:
         if not os.path.exists(self.STATE_FILE): return
         try:
             with open(self.STATE_FILE, "r") as f: state = json.load(f)
-            for s in state[:8]: # Match pool size
+            for s in state[:9]:
                 agent = next((a for a in self.agents if a.name == s["name"]), None)
                 if agent:
                     agent.balance, agent.trades, agent.symbol = s["balance"], s["trades"], s["symbol"]
@@ -247,9 +266,18 @@ class SimulationEngine:
     async def step(self, opportunities: List[Dict]):
         self.global_opportunities = opportunities
         notifications = []
-
         active_symbols = [a.symbol for a in self.agents if a.active_position]
         idle_agents = [a for a in self.agents if not a.active_position]
+
+        # Dispatch Hunter-9 (Bottom Hunter) to extreme oversold projects
+        hunter_9 = next((a for a in self.agents if a.name == "Aegis-Hunter-9"), None)
+        if hunter_9 and not hunter_9.active_position:
+            # Hunter-9 targets projects with RSI < 25 first
+            bottom_opps = [o for o in opportunities if o.get('rsi', 100) < 25 and o['symbol'] not in active_symbols]
+            if bottom_opps:
+                hunter_9.symbol = bottom_opps[0]['symbol']
+                idle_agents.remove(hunter_9)
+
         valid_opps = [o for o in opportunities if o['symbol'] not in active_symbols and o['confidence'] >= 75]
         valid_opps.sort(key=lambda x: x['confidence'], reverse=True)
 
@@ -264,23 +292,21 @@ class SimulationEngine:
             try:
                 data = await fetch_mexc_kline(agent.symbol, interval="5m", limit=300)
                 if data:
-                    # Periodic Brain Refresh
-                    if not self.brain.is_trained:
-                        self.brain.train(pd.DataFrame(data))
-
-                    res = agent.tick(pd.DataFrame(data), self.brain)
+                    df = pd.DataFrame(data)
+                    if not self.brain.is_trained: self.brain.train(df)
+                    res = agent.tick(df, self.brain)
                     if res: notifications.append(res)
             except: pass
 
         if notifications: self.save_state()
-        gc.collect() # Regular cleanup
+        gc.collect()
         return notifications
 
     def get_status(self):
         brain_insights = self.brain.get_ml_insights()
         return [{
             "name": a.name, "symbol": a.symbol, "balance": round(a.balance, 2),
-            "trade_count": len(a.trades), "leverage": a.leverage,
+            "trade_count": len(a.trades), "leverage": a.leverage, "is_special": a.is_bottom_hunter,
             "active_position": a.active_position.to_dict() if a.active_position else None,
-            "ml_insights": brain_insights # All share same brain insights
+            "ml_insights": brain_insights
         } for a in self.agents]
