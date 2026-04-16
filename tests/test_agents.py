@@ -35,4 +35,5 @@ async def test_simulation_engine_optimized():
     assert len(engine.agents) == 9
     assert engine.agents[0].name == "Aegis-Hunter-1"
     assert engine.agents[8].name == "Aegis-Hunter-9"
-    assert engine.agents[8].is_bottom_hunter == True
+    # All agents are special now
+    assert engine.agents[0].is_special == True
