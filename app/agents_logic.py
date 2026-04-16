@@ -188,6 +188,9 @@ class TradingAgent:
                     "entry_price": float(self.active_position.entry_price), "exit_price": float(exit_price),
                     "net_profit_loss": round(float(net_profit), 2), "profit_pct": round(float(pnl_pct * 100), 2),
                     "fees": round(float(fees), 2), "balance_after": round(float(self.balance), 2),
+                    "size": round(float(self.balance - net_profit), 2),
+                    "leveraged_size": round(float((self.balance - net_profit) * self.leverage), 2),
+                    "leverage": int(self.leverage),
                     "reasoning": str(exit_reason), "success": bool(pnl_pct > 0), "timestamp": datetime.now().isoformat()
                 }
                 self.trades.append(trade_record)
@@ -209,7 +212,10 @@ class TradingAgent:
                     "type": "ENTRY", "agent": str(self.name), "symbol": str(self.symbol),
                     "side": str(side), "price": float(current_price), "confidence": float(conf),
                     "tp": float(self.active_position.tp_price),
-                    "sl": float(self.active_position.sl_price)
+                    "sl": float(self.active_position.sl_price),
+                    "size": round(float(self.balance), 2),
+                    "leveraged_size": round(float(self.balance * self.leverage), 2),
+                    "leverage": int(self.leverage)
                 }
         return None
 
