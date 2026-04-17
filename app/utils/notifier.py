@@ -35,7 +35,9 @@ def format_notification(event: dict) -> str:
             f"💵 Giriş Fiyatı: <code>{event['price']}</code>\n"
             f"🎯 <b>Hedef (TP):</b> <code>{event.get('tp', '--')}</code>\n"
             f"🛡️ <b>Durdurma (SL):</b> <code>{event.get('sl', '--')}</code>\n"
-            f"✨ Güven: %{event['confidence']}"
+            f"✨ Güven: %{event['confidence']}\n\n"
+            f"🔍 <b>İşlem Mantığı:</b>\n"
+            f"<i>{event.get('reasoning', 'Piyasa dip sinyali onaylandı.')}</i>"
         )
     elif event["type"] == "EXIT":
         emoji = "✅" if event["success"] else "❌"

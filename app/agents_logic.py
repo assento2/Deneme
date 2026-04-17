@@ -186,13 +186,17 @@ class TradingAgent:
                 self.active_position = None; self.symbol = "WAITING..."
                 return {"type": "EXIT", "agent": self.name, **trade_record}
         else:
-            can_enter = False; conf = 0
+            can_enter = False; conf = 0; entry_reason = ""
+            rsi_val = round(float(last_row['rsi']), 2)
+            stoch_val = round(float(last_row['stoch_k']), 2)
 
             # Deep Bottom Trigger: RSI < 20 and StochK < 10
-            if last_row['rsi'] < 20 and last_row['stoch_k'] < 10:
+            if rsi_val < 20 and stoch_val < 10:
                 can_enter = True; conf = 90.0
+                entry_reason = f"Aşırı Satım (Wick-Hunt) | RSI: {rsi_val}, StochRSI: {stoch_val}"
             elif prediction['side'] == "LONG" and prediction['confidence'] >= 75:
                 can_enter = True; conf = prediction['confidence']
+                entry_reason = f"ML Güçlü Alım Sinyali | RSI: {rsi_val}, Güven: %{conf}"
 
             if can_enter:
                 self.active_position = Position("LONG", float(current_price), self.leverage, float(conf))
@@ -203,7 +207,10 @@ class TradingAgent:
                     "sl": float(self.active_position.sl_price),
                     "size": round(float(self.balance), 2),
                     "leveraged_size": round(float(self.balance * self.leverage), 2),
-                    "leverage": int(self.leverage)
+                    "leverage": int(self.leverage),
+                    "reasoning": entry_reason,
+                    "rsi": rsi_val,
+                    "stoch": stoch_val
                 }
         return None
 
